@@ -1,6 +1,7 @@
 """
 Shared helpers for all post types.
 """
+
 import re
 
 from config import CLIENT, USE_MARATHI_DIGITS
@@ -13,14 +14,18 @@ def marathi_digits(text):
     if not USE_MARATHI_DIGITS:
         return text
     parts = re.split(r"(\s+)", text)
-    return "".join(p if p.startswith(("#", "@", "http")) else p.translate(_TO_MARATHI)
-                   for p in parts)
+    return "".join(
+        p if p.startswith(("#", "@", "http")) else p.translate(_TO_MARATHI)
+        for p in parts
+    )
 
 
 def style_kind(post_type, tone=""):
-    """Which group of past captions to copy: tribute, greeting, congratulate, condolence, event."""
+    """Which group of past captions to copy: greeting, tribute, solemn, congratulate, condolence, event."""
     if post_type == "festival":
-        return "greeting" if tone == "greeting" else "tribute"
+        return {"greeting": "greeting", "tribute": "tribute", "solemn": "solemn"}.get(
+            tone, "tribute"
+        )
     if post_type == "reaction":
         return "condolence" if tone == "condolence" else "congratulate"
     return "event"
@@ -30,7 +35,9 @@ def client_intro(kind="event"):
     """Who we write for + their past captions of the same type."""
     examples = CLIENT["style_examples"]
     if isinstance(examples, dict):
-        chosen = examples.get(kind) or [e for group in examples.values() for e in group][:3]
+        chosen = (
+            examples.get(kind) or [e for group in examples.values() for e in group][:3]
+        )
     else:
         chosen = examples
     shown = "\n\n---\n\n".join(chosen)
