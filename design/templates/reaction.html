@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="mr">
+<head>
+{% set story = (size == 'story') %}
+{% set img_footer = (footer_img_uri | default('')) != '' %}
+{% set footer_h = (250 if story else 205) if img_footer else 230 %}
+{% set leader_h = (footer_h * 1.25) | int if img_footer else (700 if story else 520) %}
+
+{% include "_base.html" %}
+{% set sad = tone in ['condolence'] %}
+<style>
+  body { background: {{ 'linear-gradient(170deg, #2B2B2B 0%, #121212 100%)' if sad
+                       else 'linear-gradient(165deg, #12306B 0%, #0A1A3D 70%, #07122B 100%)' }}; }
+  .photo { position: absolute; left: 0; right: 0; top: 0; height: 46%; z-index: 1; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%;
+               {% if sad %}filter: grayscale(1);{% endif %} }
+  .photo::after { content: ""; position: absolute; inset: 0;
+                  background: linear-gradient(0deg, {{ '#1b1b1b' if sad else '#0E2353' }} 0%, rgba(0,0,0,0) 55%); }
+  .rays { {% if sad %}display:none;{% endif %}
+          background: repeating-conic-gradient(from 0deg at 50% 38%,
+                       rgba(255,201,74,.07) 0deg 6deg, rgba(255,201,74,0) 6deg 18deg); }
+
+  .card { position: absolute; z-index: 3; left: 6%; right: 6%;
+          top: {{ '44%' if photo_uri else '9%' }}; bottom: {{ (leader_h + 20) if leader_uri else (footer_h + 30) }}px;
+          display: flex; flex-direction: column; justify-content: center; align-items: center;
+          text-align: center; color: #fff; }
+  .headline { width: 100%; font: {{ 120 if story else 108 }}px/1.15 "Rozha One", "Mukta";
+              color: {{ '#FFFFFF' if sad else '#FFC94A' }}; }
+  .result { font: 800 {{ 190 if story else 170 }}px/1 "Mukta"; letter-spacing: .02em;
+            color: #fff; margin: 8px 0 4px; }
+  .detail { font: 600 {{ 46 if story else 42 }}px/1.3 "Mukta"; color: {{ '#D8D8D8' if sad else '#CFE0FF' }};
+            max-width: 92%; }
+  .rule { width: 34%; height: 3px; margin: 22px 0 18px; background: {{ '#9A9A9A' if sad else '#E8B44C' }}; }
+  .message { font: {{ 72 if story else 64 }}px/1.2 "Rozha One", "Mukta"; color: #FFF6E2; max-width: 94%; }
+</style>
+</head>
+<body>
+  <div class="layer rays"></div>
+  {% if photo_uri %}<div class="photo"><img src="{{ photo_uri }}"></div>{% endif %}
+
+  <div class="card fit-box">
+    <div class="headline fit" data-min="48">{{ headline }}</div>
+    {% if result %}<div class="result shrink">{{ result }}</div>{% endif %}
+    {% if detail %}<div class="detail shrink">{{ detail }}</div>{% endif %}
+    <div class="rule"></div>
+    <div class="message shrink">{{ message }}</div>
+  </div>
+
+  {% include "_footer.html" %}
+  {% include "_fit.html" %}
+</body>
+</html>

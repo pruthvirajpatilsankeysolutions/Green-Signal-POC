@@ -1,0 +1,64 @@
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Mukta"; src: url("{{ fonts.mukta }}"); font-weight: 400; }
+  @font-face { font-family: "Mukta"; src: url("{{ fonts.mukta_semibold }}"); font-weight: 600; }
+  @font-face { font-family: "Mukta"; src: url("{{ fonts.mukta_extrabold }}"); font-weight: 800; }
+  @font-face { font-family: "Rozha One"; src: url("{{ fonts.rozha }}"); }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: {{ W }}px; height: {{ H }}px; overflow: hidden; }
+  body { position: relative; background: #2a1408;
+         font-family: "Mukta", "Noto Sans Devanagari", sans-serif; }
+  .layer { position: absolute; inset: 0; }
+  .fit { white-space: nowrap; display: block; }
+
+  /* ---------- footer (shared by all templates) ---------- */
+  .footer { position: absolute; left: 0; right: 0; bottom: 0; height: {{ footer_h | default(230) }}px;
+            background: #FFF8EC; border-top: 8px solid {{ accent }};
+            display: flex; align-items: center; gap: 28px;
+            padding: 0 {{ 400 if leader_uri else 48 }}px 0 48px; z-index: 5; }
+  .logo { width: {{ logo_size | default(150) }}px; height: {{ logo_size | default(150) }}px; flex: none;
+          border-radius: 50%; background: #fff; border: 4px solid {{ accent }};
+          display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .logo img { width: 86%; height: 86%; object-fit: contain; }
+  .logo span { font: 800 72px "Mukta"; color: {{ accent }}; }
+  .who { flex: 1; min-width: 0; }
+  .who .name { font: 800 {{ name_size | default(54) }}px/1.15 "Mukta"; color: {{ accent }}; }
+  .who .desig { font: 600 {{ desig_size | default(25) }}px/1.35 "Mukta"; color: #3B2414; }
+  .who .handle { font: 600 22px/1.6 "Mukta"; color: #7A5A44; }
+  /* footer made from a ready banner image (logo + name + designation).
+     When there is a leader photo, the banner sits on the left and the
+     photo stands on the right, rising above the footer. */
+  {% set has_leader = leader_uri and (show_leader | default(true)) %}
+  {# space kept free for the photo on the right (photo may overlap the banner a little) #}
+  {% set leader_space = ((leader_h | default(560)) * (leader_ratio | default(1)) * 0.85) | int + 10 %}
+  .footer-img { position: absolute; left: 0; right: 0; bottom: 0; height: {{ footer_h | default(250) }}px;
+                background: {{ footer_bg | default('#fff') }}; border-top: 6px solid {{ accent }}; z-index: 5;
+                padding: 12px {{ leader_space if has_leader else 24 }}px 12px 20px; }
+  .footer-img img { display: block; width: 100%; height: 100%; object-fit: contain;
+                    object-position: {{ 'left center' if has_leader else 'center' }}; }
+
+  /* banner split into logo (left) + name/designation (centred), like the client's posts */
+  {% set fh = footer_h | default(250) %}
+  {% set leader_w = ((leader_h | default(560)) * (leader_ratio | default(1))) | int if has_leader else 0 %}
+  {% set logo_h = (fh * 0.84) | int %}
+  {% set logo_w = (logo_h * (footer_logo_ratio | default(1))) | int %}
+  {% set ftext_h = (fh * 0.76) | int %}
+  {% set ftext_w = (ftext_h * (footer_text_ratio | default(1))) | int %}
+  {% set side = [leader_w + 16, logo_w + 40] | max %}
+  {% set ftext_max = W - 2 * side %}
+  {% if ftext_w > ftext_max %}{% set ftext_h = (ftext_max / (footer_text_ratio | default(1))) | int %}{% set ftext_w = ftext_max %}{% endif %}
+  .footer-split { position: absolute; left: 0; right: 0; bottom: 0; height: {{ fh }}px;
+                  background: {{ footer_bg | default('#fff') }}; border-top: 6px solid {{ accent }}; z-index: 5; }
+  .footer-split .f-logo { position: absolute; left: 24px; top: 50%; transform: translateY(-50%);
+                          height: {{ logo_h }}px; width: {{ logo_w }}px; }
+  .footer-split .f-text { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+                          height: {{ ftext_h }}px; width: {{ ftext_w }}px; }
+
+  .leader { position: absolute; right: 0; bottom: 0; z-index: 6;
+            height: {{ leader_h | default(560) }}px; max-width: 520px;
+            object-fit: contain; object-position: bottom right; }
+  .ai-label { position: absolute; top: 22px; left: 22px; z-index: 7;
+              font: 600 18px "Mukta", sans-serif; color: #fff; letter-spacing: .02em;
+              background: rgba(0,0,0,.45); padding: 3px 12px; border-radius: 4px; }
+</style>

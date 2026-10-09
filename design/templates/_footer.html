@@ -1,0 +1,23 @@
+{% if footer_logo_uri and footer_text_uri %}
+<div class="footer-split">
+  <img class="f-logo" src="{{ footer_logo_uri }}">
+  <img class="f-text" src="{{ footer_text_uri }}">
+</div>
+{% elif footer_img_uri %}
+<div class="footer-img"><img src="{{ footer_img_uri }}"></div>
+{% else %}
+<div class="footer">
+  <div class="logo">
+    {% if logo_uri %}<img src="{{ logo_uri }}">{% else %}<span>{{ initial }}</span>{% endif %}
+  </div>
+  <div class="who">
+    <div class="name fit" data-min="30">{{ client.name }}</div>
+    {% for line in client.designation_lines[:desig_lines | default(2)] %}
+      <div class="desig fit" data-min="16">{{ line }}</div>
+    {% endfor %}
+    <div class="handle">{{ client.handle }}</div>
+  </div>
+</div>
+{% endif %}
+{% if leader_uri and show_leader | default(true) %}<img class="leader" src="{{ leader_uri }}">{% endif %}
+{% if label %}<div class="ai-label">{{ label }}</div>{% endif %}

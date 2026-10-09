@@ -1,0 +1,36 @@
+<script>
+// Shrinks text until it fits, then tells Python the page is ready.
+(async () => {
+  await document.fonts.ready;
+  const overflow = [];
+  const TOL = 4;                       // ignore tiny 1-4px rounding differences
+  const size = el => parseFloat(getComputedStyle(el).fontSize);
+
+  // report fonts that failed to load (wrong path or missing file)
+  document.fonts.forEach(f => { if (f.status === 'error') overflow.push(f.family + ' font did not load'); });
+
+  // 1) single-line text: shrink until it fits the width
+  document.querySelectorAll('.fit').forEach(el => {
+    const min = parseFloat(el.dataset.min || 24);
+    let s = size(el);
+    while (el.scrollWidth > el.clientWidth + TOL && s > min) { s -= 2; el.style.fontSize = s + 'px'; }
+    if (el.scrollWidth > el.clientWidth + TOL) overflow.push('"' + el.textContent.trim() + '" is too wide');
+  });
+
+  // 2) text boxes: shrink everything inside until it fits the height
+  document.querySelectorAll('.fit-box').forEach(box => {
+    const extra = () => box.scrollHeight - box.clientHeight;
+    let guard = 0;
+    while (extra() > TOL && guard++ < 25) {
+      box.querySelectorAll('.fit, .shrink').forEach(el => {
+        const min = parseFloat(el.dataset.min || 20);
+        el.style.fontSize = Math.max(min, size(el) * 0.95) + 'px';
+      });
+    }
+    if (extra() > TOL) overflow.push('text box is too tall by ' + Math.round(extra()) + 'px');
+  });
+
+  window.__overflow = overflow;
+  window.__layoutDone = true;
+})();
+</script>
