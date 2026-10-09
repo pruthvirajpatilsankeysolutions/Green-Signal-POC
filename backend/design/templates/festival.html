@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="mr">
+<head>
+{% set story = (size == 'story') %}
+{% set img_footer = (footer_img_uri | default('')) != '' or (footer_text_uri | default('')) != '' %}
+{% set footer_h = (250 if story else 205) if img_footer else 230 %}
+{% set leader_h = (footer_h * 1.38) | int if img_footer else (760 if story else 560) %}
+{% set text_h = 46 if story else 50 %}
+{% include "_base.html" %}
+{% set solemn = (tone == 'solemn') %}
+{% set right = (layout != 'text_left') %}
+<style>
+  .bg { background: url("{{ bg_uri }}") center / cover no-repeat;
+        {% if solemn %}filter: grayscale(.75) brightness(.8);{% endif %} }
+
+  /* shade behind the text side, so text is readable on any picture */
+  .shade { background:
+      linear-gradient({{ '270deg' if right else '90deg' }},
+        rgba(24,8,0,{{ 0.78 if solemn else 0.66 }}) 0%,
+        rgba(24,8,0,{{ 0.5 if solemn else 0.38 }}) 38%,
+        rgba(24,8,0,0) 64%),
+      linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 22%); }
+
+  .text { position: absolute; z-index: 3;
+          top: {{ 9 if story else 7 }}%;
+          {{ 'right' if right else 'left' }}: 4.5%;
+          width: 52%;
+          height: {{ text_h }}%;
+          display: flex; flex-direction: column; justify-content: center; align-items: center;
+          text-align: center; }
+
+  .small { font: 600 {{ 66 if story else 60 }}px/1.25 "Mukta";
+           color: {{ '#E9E9E9' if solemn else '#FFEFD0' }}; }
+  .big   { width: 100%; font-size: {{ 175 if story else 155 }}px; line-height: 1.2; }
+  .end   { font-size: {{ 84 if story else 76 }}px; line-height: 1.25;
+           color: {{ '#F2F2F2' if solemn else '#FFF1D2' }};
+           text-shadow: 0 3px 12px rgba(0,0,0,.5); }
+</style>
+</head>
+<body>
+  <div class="layer bg"></div>
+  <div class="layer shade"></div>
+
+  <div class="text fit-box">
+    <div class="small shrink">{% for part in line_small.split('|') %}{{ part }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
+    <div class="big fit title-art title-gold" data-min="60">{{ line_big }}</div>
+    <div class="ornament"><span></span></div>
+    <div class="end shrink calli">{{ line_end | replace("|", " ") }}</div>
+  </div>
+
+  {% include "_footer.html" %}
+  {% include "_fit.html" %}
+</body>
+</html>

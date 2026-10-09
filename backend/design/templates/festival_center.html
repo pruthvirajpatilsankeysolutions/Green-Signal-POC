@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="mr">
+<head>
+{% set story = (size == 'story') %}
+{% set img_footer = (footer_img_uri | default('')) != '' or (footer_text_uri | default('')) != '' %}
+{% set footer_h = (250 if story else 205) if img_footer else 230 %}
+{% set leader_h = (footer_h * 1.38) | int if img_footer else (760 if story else 560) %}
+{% include "_base.html" %}
+<style>
+  /* light centred design, like the client's Dhanteras post:
+     blessing line on top, big title, picture in the middle, wishes above the banner */
+  body { background: #FBEBD8; }
+  .bg { background: url("{{ bg_uri }}") center / cover no-repeat; }
+  /* soft light wash at the top and above the footer, so dark text is always readable */
+  .wash { background:
+      linear-gradient(180deg, rgba(252,238,220,.92) 0%, rgba(252,238,220,.70) 22%, rgba(252,238,220,0) 38%),
+      linear-gradient(0deg, rgba(252,238,220,.0) 0px, rgba(252,238,220,.85) {{ footer_h + 10 }}px,
+                      rgba(252,238,220,0) {{ footer_h + 120 }}px); }
+
+  .top { position: absolute; z-index: 3; left: 16%; right: 16%;
+         top: {{ 4 if story else 3 }}%; height: {{ 9 if story else 11 }}%;
+         display: flex; align-items: center; justify-content: center; text-align: center; }
+  .blessing { font: 600 {{ 38 if story else 32 }}px/1.35 "Mukta"; color: #7A2E12; }
+
+  .titlebox { position: absolute; z-index: 3; left: 8%; right: 8%;
+              top: {{ 13 if story else 14 }}%; height: {{ 12 if story else 17 }}%;
+              display: flex; align-items: center; justify-content: center; }
+  .title { width: 100%; text-align: center; font-size: {{ 175 if story else 145 }}px; line-height: 1.2; }
+
+  .wishbox { position: absolute; z-index: 3; left: 10%; right: 10%;
+             bottom: {{ footer_h + (36 if story else 12) }}px; height: {{ 135 if story else 118 }}px;
+             display: flex; flex-direction: column; align-items: center; justify-content: flex-end; text-align: center; }
+  .wishbox .ornament { margin: 0 auto; width: 34%; --orn: #C9892B; }
+  .wish { font-size: {{ 52 if story else 46 }}px; line-height: 1.3; color: #7A1F12; padding-top: 6px; }
+</style>
+</head>
+<body>
+  <div class="layer bg"></div>
+  <div class="layer wash"></div>
+
+  {% if line_small %}
+  <div class="top fit-box"><div class="blessing shrink">
+    {% for part in line_small.split('|') %}{{ part }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+  </div></div>
+  {% endif %}
+  <div class="titlebox"><div class="title fit title-art title-saffron" data-min="60">{{ line_big }}</div></div>
+  <div class="wishbox fit-box">
+    <div class="ornament"><span></span></div>
+    <div class="wish shrink calli">{{ line_end | replace("|", " ") }}</div>
+  </div>
+
+  {% include "_footer.html" %}
+  {% include "_fit.html" %}
+</body>
+</html>

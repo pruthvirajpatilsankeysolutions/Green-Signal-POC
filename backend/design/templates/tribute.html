@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="mr">
+<head>
+{% set story = (size == 'story') %}
+{% set img_footer = (footer_img_uri | default('')) != '' or (footer_text_uri | default('')) != '' %}
+{% set footer_h = (250 if story else 205) if img_footer else 230 %}
+{% set leader_h = (footer_h * 1.38) | int if img_footer else (760 if story else 560) %}
+{% include "_base.html" %}
+<style>
+  /* light parchment style, like the client's jayanti / punyatithi posts:
+     portrait painting on the right, dark text on the left */
+  body { background: #F6EBD3; }
+  .bg { background: url("{{ bg_uri }}") right center / cover no-repeat; }
+  .wash { background: linear-gradient(90deg, rgba(248,238,214,.94) 0%, rgba(248,238,214,.80) 40%,
+                                      rgba(248,238,214,0) 63%); }
+
+  .text { position: absolute; z-index: 3; left: 4%; width: 54%;
+          top: {{ 10 if story else 7 }}%; bottom: {{ footer_h + (80 if story else 36) }}px;
+          display: flex; flex-direction: column; justify-content: center; align-items: center;
+          text-align: center; }
+  .intro { font: 600 {{ 40 if story else 34 }}px/1.32 "Mukta"; color: #4A2F1E; max-width: 96%;
+           margin-bottom: 6px; }
+  .name  { width: 100%; font-size: {{ 150 if story else 128 }}px; line-height: 1.12; }
+  .text .ornament { --orn: #B8862B; width: 42%; margin: 10px auto 6px; }
+  .connector { font: 600 {{ 40 if story else 34 }}px/1.3 "Mukta"; color: #4A2F1E; }
+  .closing { font-size: {{ 74 if story else 62 }}px; line-height: 1.25; color: #7A1F2B; }
+</style>
+</head>
+<body>
+  <div class="layer bg"></div>
+  <div class="layer wash"></div>
+
+  <div class="text fit-box">
+    {% if line_small %}<div class="intro shrink">{% for part in line_small.split('|') %}{{ part }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
+    {% for word in line_big.split() %}<div class="name fit title-art title-royal" data-min="48">{{ word }}</div>{% endfor %}
+    <div class="ornament"><span></span></div>
+    {% set parts = line_end.split('|') %}
+    {% if parts | length > 1 %}
+      <div class="connector shrink">{{ parts[0] }}</div>
+      <div class="closing shrink calli">{{ parts[1] }}</div>
+    {% else %}
+      <div class="closing shrink calli">{{ line_end }}</div>
+    {% endif %}
+  </div>
+
+  {% include "_footer.html" %}
+  {% include "_fit.html" %}
+</body>
+</html>
