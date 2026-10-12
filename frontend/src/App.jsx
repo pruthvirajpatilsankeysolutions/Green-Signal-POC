@@ -1,15 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import {
-  CalendarHeart, Camera, CheckCircle2, ChevronRight, History as HistoryIcon, LayoutDashboard, Newspaper,
+  CalendarHeart, Camera, CheckCircle2, ChevronRight, History as HistoryIcon, LayoutDashboard, Newspaper, Users,
 } from "lucide-react";
-import { api } from "./api.js";
+import { api, getClientId, setClientId } from "./api.js";
 import Dashboard from "./pages/Dashboard.jsx";
 import Festivals from "./pages/Festivals.jsx";
 import EventPage from "./pages/EventPage.jsx";
 import Reaction from "./pages/Reaction.jsx";
 import Approvals from "./pages/Approvals.jsx";
 import History from "./pages/History.jsx";
+import Clients from "./pages/Clients.jsx";
 
 const StatusContext = createContext({ status: null, refresh: () => {} });
 export const useStatus = () => useContext(StatusContext);
@@ -34,24 +35,35 @@ const NAV = [
       { to: "/history", label: "History", icon: HistoryIcon },
     ],
   },
+  {
+    title: "Settings",
+    items: [{ to: "/clients", label: "Clients", icon: Users }],
+  },
 ];
 
 const PAGE_NAMES = {
   "/": "Dashboard", "/festivals": "Festivals", "/events": "Events",
-  "/reactions": "News reactions", "/approvals": "Approvals", "/history": "History",
+  "/reactions": "News reactions", "/approvals": "Approvals", "/history": "History", "/clients": "Clients",
 };
 
 export default function App() {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState("");
+  const [clientKey, setClientKey] = useState(getClientId());
   const { pathname } = useLocation();
 
   const refresh = useCallback(() => {
-    api.status().then((s) => { setStatus(s); setError(""); })
+    api.status().then((s) => {
+      setStatus(s); setError("");
+      if (!getClientId() && s.client?.id) { setClientId(s.client.id); setClientKey(s.client.id); }
+    })
       .catch(() => setError("Can't reach the server. Start the backend: uvicorn api.main:app --reload --port 8000"));
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // switching client reloads every page with that client's data
+  const switchClient = (id) => { setClientId(id); setClientKey(id); refresh(); };
 
   const client = status?.client;
   const aiReady = status?.text_ai;
@@ -94,17 +106,17 @@ export default function App() {
               <span>{PAGE_NAMES[pathname] || ""}</span>
             </div>
             {client && (
-              <div className="client-chip" title="Current client">
+              <label className="client-chip" title="Switch client">
                 <span className="avatar" aria-hidden="true">{client.name.slice(0, 1)}</span>
-                <span className="client-text">
-                  <span className="client-name">{client.name}</span>
-                  <span className="client-handle">{client.handle}</span>
-                </span>
-              </div>
+                <select className="client-select" value={client.id} onChange={(e) => switchClient(e.target.value)}
+                        aria-label="Current client">
+                  {(status.clients || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </label>
             )}
           </header>
 
-          <main className="content">
+          <main className="content" key={clientKey}>
             {error && <div className="notice error">{error}</div>}
             <Routes>
               <Route path="/" element={<Dashboard />} />
@@ -113,6 +125,7 @@ export default function App() {
               <Route path="/reactions" element={<Reaction />} />
               <Route path="/approvals" element={<Approvals />} />
               <Route path="/history" element={<History />} />
+              <Route path="/clients" element={<Clients onChanged={refresh} onSwitch={switchClient} />} />
             </Routes>
           </main>
         </div>

@@ -93,7 +93,7 @@ export default function Reaction() {
             <label className="field">
               <span className="field-label">Leader's personal memories <span className="optional">optional, only real ones</span></span>
               <textarea rows={4} value={memories} onChange={(e) => setMemories(e.target.value)} className="mr"
-                        placeholder="Leave empty if he didn't know the person. The AI only arranges these words." />
+                placeholder="Leave empty if he didn't know the person. The AI only arranges these words." />
             </label>
           )}
           <div className="field">
@@ -108,6 +108,9 @@ export default function Reaction() {
           </div>
 
           <Notice kind="error">{error}</Notice>
+          {!busy && !checked && <p className="hint">Step 1: click Check facts. Create post unlocks after the facts are checked.</p>}
+          {!busy && checked && !factsCurrent && <p className="hint">You changed the one-line summary after checking. Click Check facts again.</p>}
+          {!busy && factsCurrent && checked.blocked && <p className="hint">This topic is blocked, so Create post stays off.</p>}
           <div className="actions end">
             <button className="btn" onClick={check} disabled={!!busy}>{busy === "check" ? "Reading the news…" : "Check facts"}</button>
             <button className="btn primary" onClick={create} disabled={!factsCurrent || !!checked?.blocked || !!busy}>
