@@ -1,82 +1,111 @@
 """
-Saves every post (draft) in data/drafts.json.
+Saves every post (draft) in the database, for the current client only.
 
-Status flow:  waiting  ->  approved
+Status flow:  waiting  ->  approved   (the approved caption also becomes a style example)
                       ->  rejected
 """
-import json
-import os
+
+import time
 import uuid
-from datetime import datetime
 
-from config import DATA_DIR
+from sqlalchemy import select
 
-DRAFTS_FILE = DATA_DIR / "drafts.json"
+from storage.clients import add_style, current_id
+from storage.db import Draft, Session, now_text
 
 
-def _now():
-    return datetime.now().strftime("%Y-%m-%d %H:%M")
+def _out(d):
+    return {
+        "id": d.id,
+        "client_id": d.client_id,
+        "type": d.type,
+        "title": d.title,
+        "caption": d.caption,
+        "hashtags": d.hashtags or [],
+        "images": d.images or [],
+        "details": d.details or {},
+        "warnings": d.warnings or [],
+        "status": d.status,
+        "version": d.version,
+        "created_at": d.created_at,
+        "approved_at": d.approved_at or "",
+        "history": d.history or [],
+    }
 
 
 def load_all():
-    if not DRAFTS_FILE.exists():
-        return []
-    try:
-        return json.loads(DRAFTS_FILE.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return []
-
-
-def _save_all(drafts):
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = DRAFTS_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(drafts, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(tmp, DRAFTS_FILE)   # safe write: never leaves a half-written file
-
-
-def create(post_type, title, caption, hashtags, images, details=None, warnings=None):
-    draft = {
-        "id": uuid.uuid4().hex[:8],
-        "type": post_type,             # festival / event / reaction
-        "title": title,
-        "caption": caption,
-        "hashtags": hashtags,
-        "images": images,
-        "details": details or {},
-        "warnings": warnings or [],
-        "status": "waiting",
-        "version": 1,
-        "created_at": _now(),
-        "approved_at": "",
-        "history": [{"at": _now(), "event": "created"}],
-    }
-    drafts = load_all()
-    drafts.insert(0, draft)
-    _save_all(drafts)
-    return draft
-
-
-def get(draft_id):
-    return next((d for d in load_all() if d["id"] == draft_id), None)
+    with Session() as s:
+        rows = s.scalars(
+            select(Draft)
+            .where(Draft.client_id == current_id())
+            .order_by(Draft.created_ts.desc())
+        ).all()
+    return [_out(d) for d in rows]
 
 
 def by_status(status):
-    return [d for d in load_all() if d["status"] == status]
+    with Session() as s:
+        rows = s.scalars(
+            select(Draft)
+            .where(Draft.client_id == current_id(), Draft.status == status)
+            .order_by(Draft.created_ts.desc())
+        ).all()
+    return [_out(d) for d in rows]
+
+
+def get(draft_id):
+    with Session() as s:
+        d = s.get(Draft, draft_id)
+        return _out(d) if d and d.client_id == current_id() else None
+
+
+def create(post_type, title, caption, hashtags, images, details=None, warnings=None):
+    d = Draft(
+        id=uuid.uuid4().hex[:8],
+        client_id=current_id(),
+        type=post_type,
+        title=title,
+        caption=caption,
+        hashtags=hashtags,
+        images=images,
+        details=details or {},
+        warnings=warnings or [],
+        status="waiting",
+        version=1,
+        created_at=now_text(),
+        created_ts=time.time(),
+        approved_at="",
+        history=[{"at": now_text(), "event": "created"}],
+    )
+    with Session() as s:
+        s.add(d)
+        s.commit()
+    return _out(d)
 
 
 def update(draft_id, event, **fields):
-    drafts = load_all()
-    for d in drafts:
-        if d["id"] == draft_id:
-            d.update(fields)
-            d["history"].append({"at": _now(), "event": event})
-            _save_all(drafts)
-            return d
-    raise KeyError(f"Draft {draft_id} not found")
+    with Session() as s:
+        d = s.get(Draft, draft_id)
+        if not d or d.client_id != current_id():
+            raise KeyError(f"Draft {draft_id} not found")
+        for key, value in fields.items():
+            setattr(d, key, value)
+        d.history = (d.history or []) + [{"at": now_text(), "event": event}]
+        s.commit()
+        return _out(d)
 
 
 def approve(draft_id):
-    return update(draft_id, "approved", status="approved", approved_at=_now())
+    draft = update(draft_id, "approved", status="approved", approved_at=now_text())
+    # every approved caption teaches the AI this client's style for next time
+    from posts import style_kind
+
+    kind = style_kind(draft["type"], draft["details"].get("tone", ""))
+    text = draft["caption"] + (
+        "\n\n" + " ".join(draft["hashtags"]) if draft["hashtags"] else ""
+    )
+    add_style(draft["client_id"], kind, text, source="approved")
+    return draft
 
 
 def reject(draft_id):

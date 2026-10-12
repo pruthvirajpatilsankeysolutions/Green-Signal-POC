@@ -18,14 +18,13 @@ from playwright.sync_api import sync_playwright
 from config import (
     AI_LABEL_TEXT,
     ASSETS_DIR,
-    CLIENT,
     LEADER_BUST,
     OUTPUT_DIR,
     ROOT,
-    SHOW_AI_LABEL,
     SIZES,
     TEMPLATES_DIR,
 )
+from storage.clients import current
 
 _env = Environment(
     loader=FileSystemLoader(TEMPLATES_DIR), autoescape=select_autoescape(["html"])
@@ -57,10 +56,8 @@ FONTS = {
 
 
 def leader_photos():
-    folder = ROOT / CLIENT["leader_photos_dir"]
-    if not folder.exists():
-        return []
-    return sorted(str(p) for p in folder.iterdir() if p.suffix.lower() in IMAGE_TYPES)
+    """The current client's leader photos (uploaded on the Clients page)."""
+    return [p for p in current()["leader_photos"] if Path(p).exists()]
 
 
 def pick_leader_photo(turn):
@@ -102,7 +99,8 @@ def prepare_footer_image():
     Returns dict with paths and width/height ratios, or {} if no banner.
     If the banner can't be split, the whole banner is returned as "full".
     """
-    src = CLIENT.get("footer_image") or ""
+    client = current()
+    src = client.get("footer_image") or ""
     if not src:
         return {}
     p = Path(src) if Path(src).is_absolute() else ROOT / src
@@ -111,8 +109,7 @@ def prepare_footer_image():
 
     cache = OUTPUT_DIR / "_cache"
     cache.mkdir(parents=True, exist_ok=True)
-    stamp = f"{p.stem}_{int(p.stat().st_mtime)}"
-    logo_path, text_path = (
+    stamp = f"{client['id']}_{p.stem}_{int(p.stat().st_mtime)}"    logo_path, text_path = (
         cache / f"footer_logo2_{stamp}.png",
         cache / f"footer_text2_{stamp}.png",
     )
@@ -207,15 +204,16 @@ def prepare_leader_photo(path):
 
 def footer_data(leader_photo=""):
     """Data every template needs for the footer."""
+    client = current()
     banner = prepare_footer_image()
     leader_path, leader_ratio = prepare_leader_photo(leader_photo)
     return {
-        "client": CLIENT,
-        "accent": CLIENT["accent_color"],
-        "logo_uri": file_uri(CLIENT["logo"]),
+        "client": client,
+        "accent": client["accent_color"],
+        "logo_uri": file_uri(client["logo"]),
         "leader_uri": file_uri(leader_path),
-        "leader_ratio": leader_ratio,  # photo width / height
-        "initial": CLIENT["name"][:1],
+        "leader_ratio": leader_ratio,          # photo width / height
+        "initial": client["name"][:1],
         # banner: either split into logo + centred text, or one full image
         "footer_img_uri": file_uri(banner.get("full") or banner.get("text", "")),
         "footer_logo_uri": file_uri(banner.get("logo", "")),
@@ -223,12 +221,9 @@ def footer_data(leader_photo=""):
         "footer_text_uri": file_uri(banner.get("text", "")),
         "footer_text_ratio": banner.get("text_ratio", 1),
         "footer_bg": banner.get("bg", "#ffffff"),
-    }
-
-
+    } 
 def ai_label(ai_generated):
-    return AI_LABEL_TEXT if (ai_generated and SHOW_AI_LABEL) else ""
-
+    return AI_LABEL_TEXT if (ai_generated and current()["show_ai_label"]) else ""
 
 def _screenshot_all(jobs):
     """Runs in its own thread so it doesn't clash with the web server."""

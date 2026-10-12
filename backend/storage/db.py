@@ -16,13 +16,15 @@ from sqlalchemy import (
 )
 
 
+from sqlalchemy import JSON, URL, Boolean, Float, ForeignKey, Integer, String, Text, create_engine
+
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 import config
 
 
 def database_url():
-    if os.geten("DATABASE_URL"):
+    if os.getenv("DATABASE_URL"):
         return os.getenv("DATABASE_URL")
 
     if os.getenv("DB_HOST"):
@@ -37,6 +39,7 @@ def database_url():
     raise RuntimeError(
         "Database not set. Add DB_HOST, DB_PORT, DB_NAME, DB_USER and DB_PASSWORD to .env"
     )
+
 
 
 engine = create_engine(database_url(), pool_pre_ping=True)

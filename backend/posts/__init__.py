@@ -4,7 +4,8 @@ Shared helpers for all post types.
 
 import re
 
-from config import CLIENT, USE_MARATHI_DIGITS
+from config import USE_MARATHI_DIGITS
+from storage.clients import current
 
 _TO_MARATHI = str.maketrans("0123456789", "०१२३४५६७८९")
 
@@ -33,17 +34,18 @@ def style_kind(post_type, tone=""):
 
 def client_intro(kind="event"):
     """Who we write for + their past captions of the same type."""
-    examples = CLIENT["style_examples"]
-    if isinstance(examples, dict):
-        chosen = (
-            examples.get(kind) or [e for group in examples.values() for e in group][:3]
-        )
-    else:
-        chosen = examples
-    shown = "\n\n---\n\n".join(chosen)
+    client = current()
+    examples = client["style_examples"]
+    chosen = examples.get(kind) or [e for group in examples.values() for e in group][:3]
+    shown = (
+        "\n\n---\n\n".join(chosen)
+        if chosen
+        else "(no past captions yet; write in a warm, formal style)"
+    )
+    who = ", ".join(client["designation_lines"])
     return (
-        f"You write Instagram captions for {CLIENT['name']} "
-        f"({', '.join(CLIENT['designation_lines'])}).\n"
+        f"You write Instagram captions for {client['name']}"
+        f"{f' ({who})' if who else ''}, a {client['type']} client.\n"
         "Language: Marathi, formal and respectful, simple words people use daily.\n"
         "Copy the STYLE of these real past captions (structure, tone, line breaks, "
         "use of '…', closing lines). Do NOT copy their facts:\n\n"
@@ -66,7 +68,7 @@ Rules:
 def final_hashtags(tags):
     """Clean hashtags, add the client's fixed ones, remove duplicates, keep order."""
     out = []
-    for tag in list(tags or []) + CLIENT.get("fixed_hashtags", []):
+    for tag in list(tags or []) + current().get("fixed_hashtags", []):
         tag = "#" + str(tag).strip().lstrip("#").replace(" ", "_")
         if len(tag) > 1 and tag.lower() not in [t.lower() for t in out]:
             out.append(tag)

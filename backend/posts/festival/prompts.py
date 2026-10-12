@@ -74,33 +74,6 @@ def caption_prompt(festival):
     return system, user
 
 
-def caption_prompt(festival):
-    tone = festival["tone"]
-    system = (
-        client_intro(style_kind("festival", tone))
-        + COMMON_RULES
-        + FORMATS[tone]
-        + '\nReturn JSON: {"caption": "...", "hashtags": ["#..."]}'
-    )
-    poster_text = " ".join(
-        p
-        for p in [
-            festival["line_small"],
-            festival["line_big"],
-            festival["line_end"].replace("|", " "),
-        ]
-        if p
-    )
-    user = (
-        f"Occasion: {festival['occasion_mr']} ({festival.get('occasion_en', '')})\n"
-        f"Date: {festival['date']}\n"
-        f"Poster text: {poster_text}\n"
-        f"Poster's last line (use the same closing words): {festival['line_end'].replace('|', ' ')}\n"
-        "Write the caption for this post."
-    )
-    return system, user
-
-
 SCENE_SYSTEM = """
 You write picture descriptions for an AI image model, in English.
 The picture is the BACKGROUND of a Marathi poster for a politician in Maharashtra.
