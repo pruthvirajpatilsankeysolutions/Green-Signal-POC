@@ -55,17 +55,17 @@ def get_client(client_id: str):
 
 
 class ClientUpdate(BaseModel):
-    name: Optional[str]
-    type: Optional[str]
-    handle: Optional[str]
-    designation_lines: Optional[List[str]]
-    accent_color: Optional[str]
-    fixed_hashtag: Optional[List[str]]
-    show_ai_label: Optional[bool]
+    name: Optional[str] = None
+    type: Optional[str] = None
+    handle: Optional[str] = None
+    designation_lines: Optional[List[str]] = None
+    accent_color: Optional[str] = None
+    fixed_hashtags: Optional[List[str]] = None
+    show_ai_label: Optional[bool] = None
 
 
 @router.put("/{client_id}")
-def update_client(client_id: str, body: ClienUpdate):
+def update_client(client_id: str, body: ClientUpdate):
     _client(client_id)  # ensure exists
     return client_out(run(clients.update_client, client_id, **body.model_dump()))
 

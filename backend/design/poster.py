@@ -109,7 +109,8 @@ def prepare_footer_image():
 
     cache = OUTPUT_DIR / "_cache"
     cache.mkdir(parents=True, exist_ok=True)
-    stamp = f"{client['id']}_{p.stem}_{int(p.stat().st_mtime)}"    logo_path, text_path = (
+    stamp = f"{client['id']}_{p.stem}_{int(p.stat().st_mtime)}"
+    logo_path, text_path = (
         cache / f"footer_logo2_{stamp}.png",
         cache / f"footer_text2_{stamp}.png",
     )
@@ -212,7 +213,7 @@ def footer_data(leader_photo=""):
         "accent": client["accent_color"],
         "logo_uri": file_uri(client["logo"]),
         "leader_uri": file_uri(leader_path),
-        "leader_ratio": leader_ratio,          # photo width / height
+        "leader_ratio": leader_ratio,  # photo width / height
         "initial": client["name"][:1],
         # banner: either split into logo + centred text, or one full image
         "footer_img_uri": file_uri(banner.get("full") or banner.get("text", "")),
@@ -221,9 +222,12 @@ def footer_data(leader_photo=""):
         "footer_text_uri": file_uri(banner.get("text", "")),
         "footer_text_ratio": banner.get("text_ratio", 1),
         "footer_bg": banner.get("bg", "#ffffff"),
-    } 
+    }
+
+
 def ai_label(ai_generated):
     return AI_LABEL_TEXT if (ai_generated and current()["show_ai_label"]) else ""
+
 
 def _screenshot_all(jobs):
     """Runs in its own thread so it doesn't clash with the web server."""

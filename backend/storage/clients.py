@@ -106,7 +106,7 @@ def _migrate_from_config():
                 add_style(cid, kind if kind in STYLE_KINDS else "event", text)
 
 
-def set_current_client(client_id):
+def set_current(client_id):
     _current.set(client_id or None)
 
 

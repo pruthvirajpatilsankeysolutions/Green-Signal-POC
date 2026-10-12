@@ -54,9 +54,6 @@ class Base(DeclarativeBase):
     pass
 
 
-class Client(Base):
-    __tablename__ = "clients"
-
 
 class Client(Base):
     __tablename__ = "clients"
@@ -66,7 +63,7 @@ class Client(Base):
     handle: Mapped[str] = mapped_column(String(100), default="")
     designation_lines: Mapped[list] = mapped_column(JSON, default=list)
     accent_color: Mapped[str] = mapped_column(String(20), default="#F26B0F")
-    fixed_hashtag: Mapped[list] = mapped_column(JSON, default=list)
+    fixed_hashtags: Mapped[list] = mapped_column(JSON, default=list)
     show_ai_label: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[str] = mapped_column(String(20), default=now_text)
 
