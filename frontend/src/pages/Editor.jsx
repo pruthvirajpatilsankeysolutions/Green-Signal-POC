@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Canvas, FabricImage, FabricObject, Shadow, Textbox, loadSVGFromString, util } from "fabric";
+import { Canvas, FabricImage, FabricObject, Gradient, Shadow, Textbox, loadSVGFromString, util } from "fabric";
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, Bold, ChevronLeft, Copy, Download, Image as ImageIcon,
   Layers, Lock, Maximize, Minus, Palette, Plus, Redo2, Save, Shapes, Trash2, Type, Undo2, Unlock, Upload, Wallpaper,
@@ -40,6 +40,33 @@ const TABS = [
 ];
 
 const shadow = () => new Shadow({ color: "rgba(0,0,0,0.55)", blur: 12, offsetX: 0, offsetY: 3 });
+const FONT_SIZE_MULT = 1.13;                          // Fabric's line height = fontSize * lineHeight * 1.13
+const LAYER_NAMES = {
+  "f-logo": "Logo", "f-text": "Name banner", leader: "Leader photo", "brand-logo": "Logo",
+  blessing: "Small text", small: "Small text", kicker: "Small text", title: "Title", headline: "Title", big: "Title",
+  wish: "Wishes", end: "Wishes", name: "Name", desig: "Designation", handle: "Handle"
+};
+const layerName = (n) => LAYER_NAMES[n] || (n ? n.charAt(0).toUpperCase() + n.slice(1).replace(/[-_]/g, " ") : "Layer");
+
+// a text layer measured from the generated poster -> an editable Fabric text with the same look
+function measuredText(item) {
+  const pad = 8;                                       // a little room so the words never re-wrap
+  const left = item.textAlign === "center" ? item.left - pad / 2 : item.textAlign === "right" ? item.left - pad : item.left;
+  const fill = item.gradient?.length > 1
+    ? new Gradient({
+      type: "linear", gradientUnits: "percentage", coords: { x1: 0, y1: 0, x2: 0, y2: 1 },
+      colorStops: item.gradient.map((color, i) => ({ offset: i / (item.gradient.length - 1), color }))
+    })
+    : item.color;
+  return new Textbox(item.text, {
+    name: layerName(item.name), left, top: item.top, width: item.width + pad, fontSize: item.fontSize,
+    fontFamily: item.fontFamily, fontWeight: String(item.fontWeight), fill, textAlign: item.textAlign,
+    lineHeight: item.lineHeightPx / (item.fontSize * FONT_SIZE_MULT),
+    charSpacing: item.letterSpacing ? (item.letterSpacing / item.fontSize) * 1000 : 0,
+    shadow: item.shadow ? new Shadow(item.shadow) : null,
+  });
+}
+
 const isBold = (w) => ["700", "800", "bold"].includes(String(w));
 
 export default function Editor() {
@@ -140,16 +167,21 @@ export default function Editor() {
           if (st.background) {
             const bg = await FabricImage.fromURL(st.background.url);
             const cover = Math.max(width / bg.width, height / bg.height);
-            bg.set({ name: "Background", isBackground: true, scaleX: cover, scaleY: cover,
-              left: (width - bg.width * cover) / 2, top: (height - bg.height * cover) / 2 });
+            bg.set({
+              name: "Background", isBackground: true, scaleX: cover, scaleY: cover,
+              left: (width - bg.width * cover) / 2, top: (height - bg.height * cover) / 2
+            });
             c.add(bg);
           }
           for (const item of st.items) {
             if (item.type === "image") {
               const img = await FabricImage.fromURL(item.url);
-              img.scaleToWidth(item.width);
-              img.set({ name: item.name, left: item.left, top: item.top });
+              if (item.height) img.set({ scaleX: item.width / img.width, scaleY: item.height / img.height });
+              else img.scaleToWidth(item.width);
+              img.set({ name: st.measured ? layerName(item.name) : item.name, left: item.left, top: item.top });
               c.add(img);
+            } else if (st.measured) {
+              c.add(measuredText(item));
             } else {
               c.add(new Textbox(item.text, {
                 name: item.name, left: item.left, top: item.top, width: item.width, fontSize: item.fontSize,
@@ -225,8 +257,10 @@ export default function Editor() {
 
   const addText = ({ text, font, weight, size, fill = "#FFFFFF", name = "Text" }) => {
     const width = Math.min(900, Math.max(300, text.length * size * 0.55));
-    place(new Textbox(text, { name, left: (W() - width) / 2, top: nextTop(420), width, fontSize: size, fontFamily: font,
-      fontWeight: weight, fill, textAlign: "center", shadow: shadow() }));
+    place(new Textbox(text, {
+      name, left: (W() - width) / 2, top: nextTop(420), width, fontSize: size, fontFamily: font,
+      fontWeight: weight, fill, textAlign: "center", shadow: shadow()
+    }));
   };
 
   const addEmoji = (emoji) => place(new Textbox(emoji, { name: `Emoji ${emoji}`, left: (W() - 160) / 2, top: nextTop(460), width: 160, fontSize: 130, textAlign: "center" }));
@@ -282,8 +316,10 @@ export default function Editor() {
     const { width, height } = info.size;
     const bg = await FabricImage.fromURL(url);
     const cover = Math.max(width / bg.width, height / bg.height);
-    bg.set({ name: "Background", isBackground: true, scaleX: cover, scaleY: cover,
-      left: (width - bg.width * cover) / 2, top: (height - bg.height * cover) / 2 });
+    bg.set({
+      name: "Background", isBackground: true, scaleX: cover, scaleY: cover,
+      left: (width - bg.width * cover) / 2, top: (height - bg.height * cover) / 2
+    });
     const old = c().getObjects().find((o) => o.isBackground);
     if (old) c().remove(old);
     c().add(bg); c().sendObjectToBack(bg); c().requestRenderAll(); snapshot();
@@ -369,13 +405,13 @@ export default function Editor() {
         <div className="ed-section">Default text styles</div>
         {TEXT_PRESETS.map((p) => (
           <button key={p.label} className={`ed-preset ${p.cls}`} style={{ fontFamily: p.font, fontWeight: p.weight }}
-                  onClick={() => addText({ text: p.text, font: p.font, weight: p.weight, size: p.size })}>{p.label}</button>
+            onClick={() => addText({ text: p.text, font: p.font, weight: p.weight, size: p.size })}>{p.label}</button>
         ))}
         <div className="ed-section">Marathi combinations</div>
         <div className="ed-combos">
           {COMBOS.map((p) => (
             <button key={p.label} className="ed-combo" style={{ fontFamily: p.font, fontWeight: p.weight, color: p.fill === "#FFFFFF" ? "#7A1F12" : p.fill }}
-                    onClick={() => addText({ text: p.label, font: p.font, weight: p.weight, size: p.size, fill: p.fill })}>{p.label}</button>
+              onClick={() => addText({ text: p.label, font: p.font, weight: p.weight, size: p.size, fill: p.fill })}>{p.label}</button>
           ))}
         </div>
         {[["marathi", "Marathi fonts", "नमस्कार"], ["english", "English only", "Hello"]].map(([group, title, sample]) => (
@@ -383,8 +419,8 @@ export default function Editor() {
             <div className="ed-section">{title}</div>
             {fontsIn(group).map((f) => (
               <button key={f} className="ed-font" style={{ fontFamily: f }} disabled={!isText}
-                      title={isText ? "Apply to the selected text" : "Select a text first"}
-                      onClick={() => setFont(f)}>{f} <span>{sample}</span></button>
+                title={isText ? "Apply to the selected text" : "Select a text first"}
+                onClick={() => setFont(f)}>{f} <span>{sample}</span></button>
             ))}
           </div>
         ))}
@@ -420,7 +456,7 @@ export default function Editor() {
         <div className="ed-badges">
           {BADGES.map((bd) => (
             <button key={bd.text} onClick={() => addBadge(bd)} style={{ background: bd.fill, color: bd.color }}
-                    className={`ed-badge ${bd.shape}`}>{bd.text}</button>
+              className={`ed-badge ${bd.shape}`}>{bd.text}</button>
           ))}
         </div>
         <div className="ed-section">Overlays <span className="ed-hint">make text readable over photos</span></div>
@@ -461,8 +497,8 @@ export default function Editor() {
         <div className="ed-section">Brand colours</div>
         <div className="ed-swatches">
           {COLORS.map((col) => <button key={col} style={{ background: col }} aria-label={col} disabled={!selected}
-                                         title={selected ? "Apply to the selection" : "Select something first"}
-                                         onClick={() => setProp(isLine ? "stroke" : "fill", col)} />)}
+            title={selected ? "Apply to the selection" : "Select something first"}
+            onClick={() => setProp(isLine ? "stroke" : "fill", col)} />)}
         </div>
       </>
     ),
@@ -554,7 +590,7 @@ export default function Editor() {
                       <input type="color" value={currentFill} onChange={(e) => setProp("fill", e.target.value)} />
                     </label>
                     <button className={`ed-ctx${isBold(selected.fontWeight) ? " on" : ""}`} title="Bold"
-                            onClick={() => setProp("fontWeight", isBold(selected.fontWeight) ? "400" : "800")}><Bold size={16} /></button>
+                      onClick={() => setProp("fontWeight", isBold(selected.fontWeight) ? "400" : "800")}><Bold size={16} /></button>
                     {[["left", AlignLeft], ["center", AlignCenter], ["right", AlignRight]].map(([a, Icon]) => (
                       <button key={a} className={`ed-ctx${selected.textAlign === a ? " on" : ""}`} title={`Align ${a}`} onClick={() => setProp("textAlign", a)}><Icon size={16} /></button>
                     ))}
@@ -601,9 +637,9 @@ export default function Editor() {
       </div>
 
       <input ref={uploadInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden
-             onChange={(e) => { onUpload(e.target.files); e.target.value = ""; }} />
+        onChange={(e) => { onUpload(e.target.files); e.target.value = ""; }} />
       <input ref={bgInput} type="file" accept="image/png,image/jpeg,image/webp" hidden
-             onChange={async (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) { const url = await readFile(f); setUploads((u) => [{ name: f.name, url }, ...u]); setBackgroundImage(url); } }} />
+        onChange={async (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) { const url = await readFile(f); setUploads((u) => [{ name: f.name, url }, ...u]); setBackgroundImage(url); } }} />
     </div>
   );
 }

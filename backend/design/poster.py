@@ -6,6 +6,7 @@ How: fill the template with data (Jinja), open it in a hidden Chrome
 """
 
 import asyncio
+import json
 import sys
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -229,8 +230,77 @@ def ai_label(ai_generated):
     return AI_LABEL_TEXT if (ai_generated and current()["show_ai_label"]) else ""
 
 
+# Measures the finished poster for the design editor: every text (position, font, size after
+# auto-fit, colour, gradient, shadow) and every image (exact drawn position). Then it hides them,
+# so a second screenshot gives the clean background (photo, shading, ornaments, footer strip).
+MEASURE_JS = r"""
+() => {
+  const items = [];
+  const shown = (el) => { const cs = getComputedStyle(el); return cs.visibility !== "hidden" && cs.display !== "none" && parseFloat(cs.opacity) > 0; };
+  const colors = (s) => (s.match(/rgba?\([^)]*\)|#[0-9a-fA-F]{3,8}/g) || []);
+  const shadowOf = (cs) => {
+    const src = cs.textShadow !== "none" ? cs.textShadow : (cs.filter.match(/drop-shadow\((.*)\)\s*$/) || [])[1];
+    if (!src) return null;
+    const last = src.split(/,(?![^(]*\))/).pop().trim();
+    const color = colors(last)[0] || "rgba(0,0,0,0.5)";
+    const nums = (last.replace(color, "").match(/-?[\d.]+px/g) || []).map(parseFloat);
+    return { color, offsetX: nums[0] || 0, offsetY: nums[1] || 0, blur: nums[2] || 0 };
+  };
+
+  // images: the area actually drawn (object-fit contain / cover and object-position)
+  const images = [...document.querySelectorAll("img")].filter((img) => shown(img) && img.naturalWidth);
+  images.forEach((img) => {
+    const r = img.getBoundingClientRect(); if (!r.width || !r.height) return;
+    const cs = getComputedStyle(img);
+    let w = r.width, h = r.height, x = r.left, y = r.top;
+    if (["contain", "scale-down"].includes(cs.objectFit)) {
+      const s = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+      w = img.naturalWidth * s; h = img.naturalHeight * s;
+      const pos = cs.objectPosition.split(" ");
+      const frac = (v, free) => v.endsWith("%") ? parseFloat(v) / 100 * free : parseFloat(v) || 0;
+      x = r.left + frac(pos[0] || "50%", r.width - w); y = r.top + frac(pos[1] || "50%", r.height - h);
+    }
+    items.push({ type: "image", src: img.src, left: x, top: y, width: w, height: h,
+                 name: img.className || "Image", z: parseInt(getComputedStyle(img.closest("[style], div") || img).zIndex) || 0 });
+  });
+
+  // texts: elements that hold their own words (with <br> line breaks)
+  const texts = [];
+  document.querySelectorAll("body *").forEach((el) => {
+    if (["SCRIPT", "STYLE", "IMG", "BR", "SVG", "PATH"].includes(el.tagName.toUpperCase()) || !shown(el)) return;
+    if (texts.some((t) => t.contains(el))) return;
+    const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+    if (!own) return;
+    texts.push(el);
+  });
+  texts.forEach((el) => {
+    const r = el.getBoundingClientRect(); if (!r.width || !r.height) return;
+    const cs = getComputedStyle(el);
+    const size = parseFloat(cs.fontSize);
+    const lh = cs.lineHeight === "normal" ? size * 1.25 : parseFloat(cs.lineHeight);
+    const clipText = cs.webkitBackgroundClip === "text" || cs.backgroundClip === "text";
+    const grad = clipText && cs.backgroundImage.includes("gradient") ? colors(cs.backgroundImage) : null;
+    items.push({
+      type: "text", text: el.innerText.trim(), name: (el.className || el.tagName).toString().split(" ")[0] || "Text",
+      left: r.left, top: r.top, width: r.width, height: r.height,
+      fontFamily: cs.fontFamily.split(",")[0].replace(/["']/g, "").trim(), fontSize: size,
+      fontWeight: cs.fontWeight, lineHeightPx: lh, textAlign: ["center", "right", "left"].includes(cs.textAlign) ? cs.textAlign
+        : (cs.textAlign === "end" ? "right" : "left"),
+      color: grad ? grad[grad.length - 1] : cs.color, gradient: grad, shadow: shadowOf(cs),
+      letterSpacing: parseFloat(cs.letterSpacing) || 0,
+    });
+  });
+
+  // hide what became layers, so the next screenshot is the clean background
+  texts.forEach((el) => { el.style.visibility = "hidden"; });
+  images.forEach((img) => { img.style.visibility = "hidden"; });
+  return items;
+}
+"""
+
+
 def _screenshot_all(jobs):
-    """Runs in its own thread so it doesn't clash with the web server."""
+    """Runs in its own thread so it doesn't clash with Streamlit."""
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
@@ -247,10 +317,63 @@ def _screenshot_all(jobs):
                         f"Text did not fit ({Path(out_path).name}): {problem}"
                     )
                 page.screenshot(path=str(out_path))
+                # editor layers: measure, then screenshot the clean background
+                try:
+                    _measure_page(page, out_path, width, height)
+                except (
+                    Exception
+                ) as e:  # noqa: BLE001 - the poster itself is fine; the editor falls back
+                    warnings.append(
+                        f"Could not prepare editor layers ({Path(out_path).name}): {e}"
+                    )
                 page.close()
         finally:
             browser.close()
     return warnings
+
+
+def _measure_page(page, out_path, width, height):
+    """Save the editor layers (measured texts and images) + the clean background for one poster."""
+    items = page.evaluate(MEASURE_JS)
+    base = Path(out_path).with_name(Path(out_path).stem + "_base.png")
+    page.screenshot(path=str(base))
+    Path(out_path).with_suffix(".layers.json").write_text(
+        json.dumps(
+            {"width": width, "height": height, "base": str(base), "items": items},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def measure_existing(png_path):
+    """For posters made before editor layers existed: measure them from their saved HTML page.
+    Returns True when the layers file now exists."""
+    png = Path(png_path)
+    html = OUTPUT_DIR / "_html" / f"{png.stem}.html"
+    if png.with_suffix(".layers.json").exists():
+        return True
+    if not html.exists():
+        return False
+
+    def work():
+        if sys.platform.startswith("win"):
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+        size = "story" if png.stem.endswith("_story") else "feed"
+        width, height = SIZES[size]
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            try:
+                page = browser.new_page(viewport={"width": width, "height": height})
+                page.goto(html.as_uri())
+                page.wait_for_function("window.__layoutDone === true", timeout=20000)
+                _measure_page(page, png, width, height)
+            finally:
+                browser.close()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pool.submit(work).result()
+    return png.with_suffix(".layers.json").exists()
 
 
 def render(template, data, name, sizes=("feed",)):
