@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.middleware import ClientMiddleware
 from api.routes import clients as clients_routes
+from api.routes import designs as designs_routes
 from api.routes import drafts as drafts_routes
 from api.routes import events as events_routes
 from api.routes import festivals as festivals_routes
@@ -35,6 +36,7 @@ app.include_router(festivals_routes.router)
 app.include_router(events_routes.router)
 app.include_router(reactions_routes.router)
 app.include_router(drafts_routes.router)
+app.include_router(designs_routes.router)
 
 # ---------------------------------------------------------------- files (posters, uploads, assets)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

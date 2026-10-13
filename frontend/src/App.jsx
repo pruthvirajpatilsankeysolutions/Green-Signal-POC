@@ -11,6 +11,7 @@ import Reaction from "./pages/Reaction.jsx";
 import Approvals from "./pages/Approvals.jsx";
 import History from "./pages/History.jsx";
 import Clients from "./pages/Clients.jsx";
+import Editor from "./pages/Editor.jsx";
 
 const StatusContext = createContext({ status: null, refresh: () => {} });
 export const useStatus = () => useContext(StatusContext);
@@ -45,6 +46,7 @@ const PAGE_NAMES = {
   "/": "Dashboard", "/festivals": "Festivals", "/events": "Events",
   "/reactions": "News reactions", "/approvals": "Approvals", "/history": "History", "/clients": "Clients",
 };
+const pageName = (path) => PAGE_NAMES[path] || (path.startsWith("/editor") ? "Edit design" : "");
 
 export default function App() {
   const [status, setStatus] = useState(null);
@@ -67,6 +69,15 @@ export default function App() {
 
   const client = status?.client;
   const aiReady = status?.text_ai;
+
+  // the design editor uses the whole screen, like a design tool
+  if (pathname.startsWith("/editor/")) {
+    return (
+      <StatusContext.Provider value={{ status, refresh }}>
+        <Routes><Route path="/editor/:id" element={<Editor />} /></Routes>
+      </StatusContext.Provider>
+    );
+  }
 
   return (
     <StatusContext.Provider value={{ status, refresh }}>
@@ -103,7 +114,7 @@ export default function App() {
             <div className="crumbs">
               <span className="crumb-muted">{client?.name || "Workspace"}</span>
               <ChevronRight size={14} aria-hidden="true" className="crumb-sep" />
-              <span>{PAGE_NAMES[pathname] || ""}</span>
+              <span>{pageName(pathname)}</span>
             </div>
             {client && (
               <label className="client-chip" title="Switch client">

@@ -110,3 +110,28 @@ def approve(draft_id):
 
 def reject(draft_id):
     return update(draft_id, "rejected", status="rejected")
+
+
+def get_design(draft_id):
+    """The saved editor layers of a post ({} if never edited)."""
+    with Session() as s:
+        d = s.get(Draft, draft_id)
+        if not d or d.client_id != current_id():
+            raise KeyError(f"Draft {draft_id} not found")
+        return d.design or {}
+
+
+def save_design(draft_id, design, images):
+    """Save edited layers + new images. Editing sends the post back for approval."""
+    with Session() as s:
+        d = s.get(Draft, draft_id)
+        if not d or d.client_id != current_id():
+            raise KeyError(f"Draft {draft_id} not found")
+        d.design = design
+        d.images = images
+        d.version = (d.version or 1) + 1
+        d.status = "waiting"
+        d.approved_at = ""
+        d.history = (d.history or []) + [{"at": now_text(), "event": "design edited"}]
+        s.commit()
+        return _out(d)

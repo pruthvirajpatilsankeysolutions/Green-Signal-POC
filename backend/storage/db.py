@@ -13,10 +13,21 @@ from sqlalchemy import (
     String,
     Text,
     create_engine,
+    text,
 )
 
 
-from sqlalchemy import JSON, URL, Boolean, Float, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy import (
+    JSON,
+    URL,
+    Boolean,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    create_engine,
+)
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
@@ -41,7 +52,6 @@ def database_url():
     )
 
 
-
 engine = create_engine(database_url(), pool_pre_ping=True)
 Session = sessionmaker(engine, expire_on_commit=False)
 
@@ -52,7 +62,6 @@ def now_text():
 
 class Base(DeclarativeBase):
     pass
-
 
 
 class Client(Base):
@@ -105,7 +114,26 @@ class Draft(Base):
     created_ts: Mapped[float] = mapped_column(Float, default=time.time)  # exact order
     approved_at: Mapped[str] = mapped_column(String(20), default="")
     history: Mapped[list] = mapped_column(JSON, default=list)
+    design: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+# columns added after the first version; added to an existing database automatically
+NEW_COLUMNS = [
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone VARCHAR(40) DEFAULT ''",
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''",
+    "ALTER TABLE drafts ADD COLUMN IF NOT EXISTS design JSON",
+]
 
 
 def init_db():
     Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        for statement in NEW_COLUMNS:
+            conn.execute(text(statement))
+
+
+def init_db():
+    Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        for statement in NEW_COLUMNS:
+            conn.execute(text(statement))

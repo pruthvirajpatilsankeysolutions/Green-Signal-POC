@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Check, Copy, Download, Inbox, RotateCcw, X } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Check, Copy, Download, Inbox, Palette, RotateCcw, X } from "lucide-react";
 import { api } from "../api.js";
 import { useStatus } from "../App.jsx";
 import FeedPreview from "../components/FeedPreview.jsx";
@@ -86,6 +86,7 @@ export default function Approvals() {
 }
 
 function ReviewPanel({ draft, onDone }) {
+  const navigate = useNavigate();
   const [instruction, setInstruction] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -113,6 +114,9 @@ function ReviewPanel({ draft, onDone }) {
           <button className="btn danger" disabled={!!busy} onClick={() => act("reject", () => api.reject(draft.id))}>
             <X size={16} aria-hidden="true" /> Reject
           </button>
+          <button className="btn" disabled={!!busy} onClick={() => navigate(`/editor/${draft.id}`)}>
+            <Palette size={16} aria-hidden="true" /> Edit design
+          </button>
         </div>
 
         <div className="divider" />
@@ -128,7 +132,7 @@ function ReviewPanel({ draft, onDone }) {
             <RotateCcw size={16} aria-hidden="true" /> {busy === "rewrite" ? "Rewriting…" : "Rewrite caption"}
           </button>
         </div>
-        <p className="hint">To change the text on the poster image, edit festivals.csv and create the poster again.</p>
+        <p className="hint">To move or change text, images, emojis or the background, use Edit design.</p>
         <Notice kind="error">{error}</Notice>
       </div>
     </div>
