@@ -111,7 +111,7 @@ class PostPlan(Base):
     __tablename__ = "post_plans"
     id: Mapped[str] = mapped_column(String(12), primary_key=True)
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), index=True)
-    festival_id: Mapped[str] = mapped_column(String(80), default="")
+    festival_id: Mapped[str] = mapped_column(String(80), index=True)   
     status: Mapped[str] = mapped_column(String(20), default="options")
     options: Mapped[dict] = mapped_column(JSON, default=dict)
     chosen: Mapped[dict] = mapped_column(JSON, default=dict)

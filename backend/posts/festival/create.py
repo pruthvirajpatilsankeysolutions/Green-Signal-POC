@@ -11,8 +11,10 @@ from design.poster import (
     pick_leader_photo,
     render,
 )
+
 from posts import final_hashtags, marathi_digits
 from posts.festival.prompts import caption_prompt, scene_prompt
+from storage import drafts
 from storage.clients import current
 
 TRIBUTE_TONES = ("tribute", "solemn")

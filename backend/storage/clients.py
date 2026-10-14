@@ -223,7 +223,6 @@ EDITABLE = {
     "accent_color": "accent_color",
     "fixed_hashtags": "fixed_hashtags",
     "show_ai_label": "show_ai_label",
-    "show_ai_label": "show_ai_label",
     "phone": "phone",
     "address": "address",
     "post_types": "post_types",
