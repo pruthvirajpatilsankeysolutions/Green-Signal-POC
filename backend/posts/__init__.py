@@ -1,10 +1,7 @@
-"""
-Shared helpers for all post types.
-"""
-
 import re
 
 from config import USE_MARATHI_DIGITS
+from storage.categories import category
 from storage.clients import current
 
 _TO_MARATHI = str.maketrans("0123456789", "०१२३४५६७८९")
@@ -43,10 +40,12 @@ def client_intro(kind="event"):
         else "(no past captions yet; write in a warm, formal style)"
     )
     who = ", ".join(client["designation_lines"])
+    cat = category(client["type"])
     return (
         f"You write Instagram captions for {client['name']}"
-        f"{f' ({who})' if who else ''}, a {client['type']} client.\n"
-        "Language: Marathi, formal and respectful, simple words people use daily.\n"
+        f"{f' ({who})' if who else ''}, a {cat['label'].lower()} client.\n"
+        f"Language: Marathi, simple words people use daily. Tone: {cat['voice']}.\n"
+        f"{cat['rules']}"
         "Copy the STYLE of these real past captions (structure, tone, line breaks, "
         "use of '…', closing lines). Do NOT copy their facts:\n\n"
         f"{shown}\n"

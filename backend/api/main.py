@@ -5,6 +5,7 @@ in api/routes/; this file only creates the app and plugs them in.
 Run from the backend folder:
     uvicorn api.main:app --reload --port 8000
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -16,6 +17,8 @@ from api.routes import designs as designs_routes
 from api.routes import drafts as drafts_routes
 from api.routes import events as events_routes
 from api.routes import festivals as festivals_routes
+from api.routes import month_plan as month_plan_routes
+from api.routes import plans as plans_routes
 from api.routes import reactions as reactions_routes
 from api.routes import status as status_routes
 from config import ASSETS_DIR, OUTPUT_DIR, ROOT
@@ -24,15 +27,21 @@ from storage import clients
 app = FastAPI(title="Social post assistant API")
 
 app.add_middleware(ClientMiddleware)
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
-                   allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-clients.ensure_ready()          # create tables / first client on first start
+clients.ensure_ready()  # create tables / first client on first start
 
 # ---------------------------------------------------------------- API routes, one file per category
 app.include_router(status_routes.router)
 app.include_router(clients_routes.router)
 app.include_router(festivals_routes.router)
+app.include_router(plans_routes.router)
+app.include_router(month_plan_routes.router)
 app.include_router(events_routes.router)
 app.include_router(reactions_routes.router)
 app.include_router(drafts_routes.router)
@@ -51,4 +60,6 @@ if DIST.exists():
     @app.get("/{full_path:path}")
     def spa(full_path: str):
         file = DIST / full_path
-        return FileResponse(file if full_path and file.is_file() else DIST / "index.html")
+        return FileResponse(
+            file if full_path and file.is_file() else DIST / "index.html"
+        )

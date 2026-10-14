@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  CalendarDays, CalendarRange, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, List, Search, Sparkles, Upload, X,
+  CalendarDays, CalendarRange, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, ExternalLink, List, Search, Sparkles, Upload, X,
 } from "lucide-react";
 import { api } from "../api.js";
 import { useStatus } from "../App.jsx";
 import DateBlock from "../components/DateBlock.jsx";
 import FeedPreview from "../components/FeedPreview.jsx";
 import CreatedNotice from "../components/CreatedNotice.jsx";
+import MonthPlanTable from "../components/MonthPlanTable.jsx";
 import Notice from "../components/Notice.jsx";
+import PlanPanel from "../components/PlanPanel.jsx";
 import Segmented from "../components/Segmented.jsx";
 
 const LAYOUTS = [
@@ -214,7 +216,7 @@ export default function Festivals() {
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search occasions" aria-label="Search occasions" />
               </label>
               <div className="seg" role="tablist" aria-label="View">
-                {[["month", CalendarDays, "Month"], ["week", CalendarRange, "Week"], ["list", List, "List"]].map(([v, Icon, label]) => (
+                {[["month", CalendarDays, "Month"], ["week", CalendarRange, "Week"], ["list", List, "List"], ["plan", ClipboardList, "Plan"]].map(([v, Icon, label]) => (
                   <button key={v} role="tab" aria-selected={view === v} className={view === v ? "on" : ""} onClick={() => go({ view: v })}>
                     <Icon size={16} aria-hidden="true" /> {label}
                   </button>
@@ -223,7 +225,7 @@ export default function Festivals() {
             </div>
           </div>
 
-          {view !== "list" && (
+          {(view === "month" || view === "week") && (
             <div className="cx-progress" title={`${done} approved, ${waiting} waiting, ${inMonth.length - done - waiting} to do`}>
               <span><strong>{done}</strong> of <strong>{inMonth.length}</strong> posts approved in {monthTitle(anchor).split(" ")[0]}</span>
               <span className="cx-bar">
@@ -272,6 +274,11 @@ export default function Festivals() {
                 );
               })}
             </div>
+          )}
+
+          {view === "plan" && (
+            <MonthPlanTable month={month} monthName={monthTitle(anchor).split(" ")[0]} reloadKey={openId}
+                            onOpen={(f) => go({ id: f.id, date: f.date })} />
           )}
 
           {view === "list" && <Agenda items={shown} stateOf={stateOf} posts={posts} openId={openId} onOpen={(f) => go({ id: f.id, date: f.date })} />}
@@ -413,13 +420,17 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [draft, setDraft] = useState(null);
+  const [plan, setPlan] = useState(null);
+  const [planKey, setPlanKey] = useState(0);
   const upload = useRef(null);
 
   const loadBackgrounds = () => api.backgrounds(fest.id).then((d) => setBackgrounds(d.backgrounds)).catch((e) => setError(e.message));
   useEffect(() => { loadBackgrounds(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const choose = (bg) => { setChosen(bg); setAiLabel(bg.source === "ai"); };
-  const posterLines = useMemo(() => [fest.line_small, fest.line_big, fest.line_end].map((t) => t.replaceAll("|", " ")), [fest]);
+  // the poster uses the planned words when there is a plan, otherwise the calendar's standard text
+  const words = plan?.chosen?.poster || fest;
+  const posterLines = [words.line_small, words.line_big, words.line_end].map((t) => (t || "").replaceAll("|", " "));
 
   const act = async (label, fn) => {
     setBusy(label); setError("");
@@ -438,8 +449,9 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
   });
 
   const onCreate = () => act("create", async () => {
-    const d = await api.createFestivalPost(fest.id, { background: chosen.path, layout, ai_generated: aiLabel });
+    const d = await api.createFestivalPost(fest.id, { background: chosen.path, layout, ai_generated: aiLabel, use_plan: true });
     setDraft(d);
+    setPlanKey((k) => k + 1);                       // the plan was used; the next post starts fresh
     onCreated();
   });
 
@@ -454,6 +466,10 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
       </div>
       {fest.notes && <Notice kind="warning">{fest.notes}</Notice>}
 
+      <div className="step-title"><span>1</span> Words</div>
+      <PlanPanel key={planKey} fest={fest} onPlan={setPlan} />
+
+      <div className="step-title"><span>2</span> Picture and layout</div>
       <div className="poster-text" aria-label="Text on the poster">
         <span className="pt-small mr">{posterLines[0]}</span>
         <span className="pt-big mr">{posterLines[1]}</span>
@@ -503,6 +519,8 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
         This picture was made by AI
       </label>
 
+      <div className="step-title"><span>3</span> Create</div>
+      {plan && plan.status !== "approved" && <p className="hint">The words aren't approved yet. You can still create the poster with the current picks.</p>}
       <Notice kind="error">{error}</Notice>
       <div className="actions end">
         <button className="btn primary" onClick={onCreate} disabled={!chosen || !!busy}>

@@ -1,17 +1,3 @@
-"""
-Festival post flow:
-  1. background picture  (ready one from assets/backgrounds, or 4 new AI options)
-  2. caption             (AI)
-  3. poster              (template -> PNG, square feed + story size)
-  4. save draft          (waits for approval)
-
-Design rules (from the client's real posts):
-  greeting, layout Right/Left       -> festival.html, picture with text on one side
-  greeting, layout Centre           -> festival_center.html, light design, all text centred
-  tribute  (jayanti)                -> tribute.html,  banner + leader photo
-  solemn   (punyatithi)             -> tribute.html,  banner, NO leader photo
-"""
-
 from pathlib import Path
 
 from ai.claude import ask_json
@@ -27,7 +13,7 @@ from design.poster import (
 )
 from posts import final_hashtags, marathi_digits
 from posts.festival.prompts import caption_prompt, scene_prompt
-from storage import drafts
+from storage.clients import current
 
 TRIBUTE_TONES = ("tribute", "solemn")
 
@@ -63,12 +49,37 @@ def write_caption(festival):
     )
 
 
-def make_post(festival, background_path, ai_generated, layout="text_right"):
-    caption, hashtags = write_caption(festival)
+def make_post(festival, background_path, ai_generated, layout="text_right", plan=None):
+    """plan: a post plan with chosen words. Without it, the calendar's standard
+    poster text is used and the AI writes the caption."""
+    if plan and plan.get("chosen"):
+        from posts.festival.planner import final_text, write_body
+
+        chosen = dict(plan["chosen"])
+        if not chosen.get(
+            "caption", ""
+        ).strip():  # month plan: only hook + title were planned
+            body, tags = write_body(festival, chosen)
+            chosen["caption"] = body
+            chosen["hashtags"] = chosen.get("hashtags") or tags
+        caption, hashtags, poster = final_text(chosen)
+        festival = {
+            **festival,
+            **{
+                k: poster.get(k) or festival[k]
+                for k in ("line_small", "line_big", "line_end")
+            },
+        }
+    else:
+        caption, hashtags = write_caption(festival)
     tone = festival["tone"]
 
     if tone in TRIBUTE_TONES:
         template, layout = "tribute.html", "text_left"
+
+    elif current()["type"] != "politician":
+        template, layout = "business.html", "business"
+
     elif layout == "text_center":
         template = "festival_center.html"
 
@@ -106,6 +117,7 @@ def make_post(festival, background_path, ai_generated, layout="text_right"):
             "background": str(Path(background_path)),
             "ai_background": ai_generated,
             "layout": layout,
+            "plan_id": plan["id"] if plan else "",
         },
         warnings=warnings,
     )

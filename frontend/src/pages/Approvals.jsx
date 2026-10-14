@@ -15,15 +15,31 @@ export default function Approvals() {
   const [lists, setLists] = useState({ waiting: null, approved: [] });
   const [error, setError] = useState("");
 
+  const selectedId = params.get("id");
+  const [missing, setMissing] = useState(false);
+
   const load = () => Promise.all([api.drafts("waiting"), api.drafts("approved")])
-    .then(([w, a]) => setLists({ waiting: w.drafts, approved: a.drafts }))
+    .then(([w, a]) => {
+      setLists({ waiting: w.drafts, approved: a.drafts });
+      // a link to a post opens the tab that post is in
+      const id = new URLSearchParams(window.location.search).get("id");
+      if (id) {
+        if (a.drafts.some((d) => d.id === id)) setTab("approved");
+        else if (w.drafts.some((d) => d.id === id)) setTab("waiting");
+        else setMissing(true);
+      }
+    })
     .catch((e) => setError(e.message));
 
   useEffect(() => { load(); }, []);
 
   const items = lists[tab] || [];
-  const selectedId = params.get("id");
   const selected = useMemo(() => items.find((d) => d.id === selectedId) || items[0], [items, selectedId]);
+
+  // keep the selected post visible in the list
+  useEffect(() => {
+    if (selected) document.querySelector(`[data-id="${selected.id}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [selected?.id, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const afterAction = (nextTab) => { load(); refresh(); if (nextTab) setTab(nextTab); setParams({}); };
 
@@ -34,13 +50,16 @@ export default function Approvals() {
         <p className="lead">See each post as it will appear on Instagram, then approve it, ask for a change, or reject it.</p>
       </header>
       <Notice kind="error">{error}</Notice>
+      {missing && (
+        <Notice kind="warning">That post isn't waiting or approved any more. It may have been rejected, or it belongs to another client.</Notice>
+      )}
 
       <div className="inbox">
         <aside className="queue">
           <div className="tabs" role="tablist">
             {["waiting", "approved"].map((t) => (
               <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""}
-                      onClick={() => { setTab(t); setParams({}); }}>
+                      onClick={() => { setTab(t); setParams({}); setMissing(false); }}>
                 {t === "waiting" ? "Waiting" : "Approved"}
                 <span className="tab-count">{lists[t]?.length ?? 0}</span>
               </button>
@@ -56,7 +75,7 @@ export default function Approvals() {
               <ul className="queue-list">
                 {items.map((d) => (
                   <li key={d.id}>
-                    <button className={`queue-item${selected?.id === d.id ? " on" : ""}`} onClick={() => setParams({ id: d.id })}>
+                    <button data-id={d.id} className={`queue-item${selected?.id === d.id ? " on" : ""}`} onClick={() => { setParams({ id: d.id }); setMissing(false); }}>
                       {d.image_urls[0] ? <img src={d.image_urls[0]} alt="" /> : <span className="queue-noimg" />}
                       <span className="queue-text">
                         <span className="mr strong ellipsis">{d.title}</span>

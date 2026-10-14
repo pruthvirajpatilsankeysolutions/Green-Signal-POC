@@ -1,20 +1,10 @@
-"""
-Reaction post flow:
-  1. read the news link (or pasted text)
-  2. AI pulls the facts                -> stop if topic is sensitive
-  3. code compares team's line vs news -> warn on mismatch
-  4. AI writes the caption using ONLY the facts (+ memories for condolence)
-  5. code checks no new numbers slipped in
-  6. images:
-       with photos    -> the real photos, no banner, no text (client's style)
-       without photos -> a simple card with banner (fallback)
-"""
+
 import requests
 from bs4 import BeautifulSoup
 
 from ai.claude import ask_json
 from design.photos import prepare_for_instagram
-from design.poster import file_uri, footer_data, pick_leader_photo, render
+from design.poster import footer_data, pick_leader_photo, render
 from posts import final_hashtags, marathi_digits
 from posts.reaction.checks import compare_team_line, unknown_numbers
 from posts.reaction.prompts import caption_prompt, extract_prompt

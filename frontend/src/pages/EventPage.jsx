@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api.js";
 import { useStatus } from "../App.jsx";
 import FeedPreview from "../components/FeedPreview.jsx";
+import CreatedNotice from "../components/CreatedNotice.jsx";
 import Notice from "../components/Notice.jsx";
 import PhotoPicker from "../components/PhotoPicker.jsx";
 
@@ -83,7 +84,7 @@ export default function EventPage() {
         <div className="result-col">
           {draft ? (
             <>
-              <Notice kind="success">Post created. It is waiting on the Approvals page.</Notice>
+              <CreatedNotice draft={draft} />
               {draft.warnings.map((w) => <Notice key={w} kind="warning">{w}</Notice>)}
               <FeedPreview draft={draft} />
             </>

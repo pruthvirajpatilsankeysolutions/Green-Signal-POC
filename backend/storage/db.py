@@ -1,4 +1,3 @@
-from email.policy import default
 import os
 import time
 from datetime import datetime
@@ -16,18 +15,6 @@ from sqlalchemy import (
     text,
 )
 
-
-from sqlalchemy import (
-    JSON,
-    URL,
-    Boolean,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    create_engine,
-)
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
@@ -73,7 +60,10 @@ class Client(Base):
     designation_lines: Mapped[list] = mapped_column(JSON, default=list)
     accent_color: Mapped[str] = mapped_column(String(20), default="#F26B0F")
     fixed_hashtags: Mapped[list] = mapped_column(JSON, default=list)
-    show_ai_label: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_ai_label: Mapped[bool] = mapped_column(Boolean, default=False)
+    phone: Mapped[str] = mapped_column(String(40), default="")
+    address: Mapped[str] = mapped_column(Text, default="")
+    post_types: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[str] = mapped_column(String(20), default=now_text)
 
 
@@ -117,19 +107,25 @@ class Draft(Base):
     design: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
-# columns added after the first version; added to an existing database automatically
+class PostPlan(Base):
+    __tablename__ = "post_plans"
+    id: Mapped[str] = mapped_column(String(12), primary_key=True)
+    client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), index=True)
+    festival_id: Mapped[str] = mapped_column(String(80), default="")
+    status: Mapped[str] = mapped_column(String(20), default="options")
+    options: Mapped[dict] = mapped_column(JSON, default=dict)
+    chosen: Mapped[dict] = mapped_column(JSON, default=dict)
+    draft_id: Mapped[str] = mapped_column(String(12), default="")
+    created_at: Mapped[str] = mapped_column(String(20), default=now_text)
+    updated_at: Mapped[str] = mapped_column(String(20), default=now_text)
+
+
 NEW_COLUMNS = [
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone VARCHAR(40) DEFAULT ''",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''",
     "ALTER TABLE drafts ADD COLUMN IF NOT EXISTS design JSON",
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS post_types JSON",
 ]
-
-
-def init_db():
-    Base.metadata.create_all(engine)
-    with engine.begin() as conn:
-        for statement in NEW_COLUMNS:
-            conn.execute(text(statement))
 
 
 def init_db():

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from api.helpers import run, to_url
 from storage import clients
+from storage.categories import ALIASES, post_type_list, public_list
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
@@ -17,7 +18,10 @@ def client_out(profile):
         if k not in ("footer_image", "logo", "leader_photos")
     }
     out["assets"] = [{**a, "url": to_url(a["path"])} for a in profile["assets"]]
-    out["types"] = clients.CLIENT_TYPES
+    out["type"] = ALIASES.get(out["type"], out["type"])
+    out["types"] = [c["id"] for c in public_list()]
+    out["categories"] = public_list()
+    out["all_post_types"] = post_type_list()
     out["style_kinds"] = clients.STYLE_KINDS
     return out
 
@@ -31,13 +35,19 @@ def _client(client_id):
 
 @router.get("")
 def list_clients():
-    return {"clients": clients.list_clients(), "types": clients.CLIENT_TYPES}
+    return {
+        "clients": clients.list_clients(),
+        "types": [c["id"] for c in public_list()],
+        "categories": public_list(),
+        "post_types": post_type_list(),
+    }
 
 
 class ClientIn(BaseModel):
     name: str
     type: str = "politician"
     handle: str = ""
+    post_types: Optional[List[str]] = None
 
 
 @router.post("")
@@ -45,7 +55,14 @@ def create_client(body: ClientIn):
     if not body.name.strip():
         raise HTTPException(400, "Name is required")
     return client_out(
-        run(clients.create_client, body.name.strip(), body.type, body.handle.strip())
+        run(
+            clients.create_client,
+            body.name.strip(),
+            body.type,
+            body.handle.strip(),
+            "",
+            body.post_types,
+        )
     )
 
 
@@ -62,6 +79,9 @@ class ClientUpdate(BaseModel):
     accent_color: Optional[str] = None
     fixed_hashtags: Optional[List[str]] = None
     show_ai_label: Optional[bool] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    post_types: Optional[List[str]] = None
 
 
 @router.put("/{client_id}")

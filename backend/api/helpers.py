@@ -1,6 +1,7 @@
 """
 Small helpers shared by all API routes.
 """
+
 import uuid
 from pathlib import Path
 from urllib.parse import quote
@@ -14,7 +15,10 @@ from design.poster import IMAGE_TYPES
 def to_url(path):
     """Server file path -> URL the browser can load ('' if outside output/assets)."""
     p = Path(path).resolve()
-    for base, prefix in ((OUTPUT_DIR.resolve(), "/files/output"), (ASSETS_DIR.resolve(), "/files/assets")):
+    for base, prefix in (
+        (OUTPUT_DIR.resolve(), "/files/output"),
+        (ASSETS_DIR.resolve(), "/files/assets"),
+    ):
         try:
             return f"{prefix}/{quote(p.relative_to(base).as_posix())}"
         except ValueError:
@@ -42,7 +46,9 @@ def save_upload(upload: UploadFile, folder: Path, name: str = ""):
     folder.mkdir(parents=True, exist_ok=True)
     ext = Path(upload.filename or "").suffix.lower() or ".jpg"
     if ext not in IMAGE_TYPES:
-        raise HTTPException(400, f"{upload.filename}: only JPG, PNG or WEBP images are allowed.")
+        raise HTTPException(
+            400, f"{upload.filename}: only JPG, PNG or WEBP images are allowed."
+        )
     path = folder / f"{name or uuid.uuid4().hex[:8]}{ext}"
     path.write_bytes(upload.file.read())
     return str(path)
@@ -54,5 +60,9 @@ def run(fn, *args, **kwargs):
         return fn(*args, **kwargs)
     except HTTPException:
         raise
+
+    except ValueError as e:  # wrong input (e.g. unknown category): the user can fix it
+        raise HTTPException(400, str(e)) from e
+
     except Exception as e:  # noqa: BLE001 - show the real reason in the UI
         raise HTTPException(500, str(e)) from e

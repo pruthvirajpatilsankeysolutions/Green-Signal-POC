@@ -24,9 +24,9 @@ const NAV = [
   {
     title: "Create",
     items: [
-      { to: "/festivals", label: "Festivals", icon: CalendarHeart },
-      { to: "/events", label: "Events", icon: Camera },
-      { to: "/reactions", label: "News reactions", icon: Newspaper },
+      { to: "/festivals", label: "Festivals", icon: CalendarHeart, feature: "festivals" },
+      { to: "/events", label: "Events", icon: Camera, feature: "events" },
+      { to: "/reactions", label: "News reactions", icon: Newspaper, feature: "reactions" },
     ],
   },
   {
@@ -69,6 +69,9 @@ export default function App() {
 
   const client = status?.client;
   const aiReady = status?.text_ai;
+  // the client's post types decide which Create pages are shown
+  const allowed = (feature) => !feature || !client?.features || client.features.includes(feature);
+  const onlyFor = (feature, page) => (allowed(feature) ? page : <NotForCategory category={client?.category} />);
 
   // the design editor uses the whole screen, like a design tool
   if (pathname.startsWith("/editor/")) {
@@ -92,7 +95,7 @@ export default function App() {
             {NAV.map((group, gi) => (
               <div key={gi} className="nav-group">
                 {group.title && <div className="nav-title">{group.title}</div>}
-                {group.items.map(({ to, label, icon: Icon, end, badge }) => (
+                {group.items.filter((item) => allowed(item.feature)).map(({ to, label, icon: Icon, end, badge }) => (
                   <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
                     <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
                     <span>{label}</span>
@@ -119,6 +122,7 @@ export default function App() {
             {client && (
               <label className="client-chip" title="Switch client">
                 <span className="avatar" aria-hidden="true">{client.name.slice(0, 1)}</span>
+                <span className="client-cat">{client.category}</span>
                 <select className="client-select" value={client.id} onChange={(e) => switchClient(e.target.value)}
                         aria-label="Current client">
                   {(status.clients || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -131,9 +135,9 @@ export default function App() {
             {error && <div className="notice error">{error}</div>}
             <Routes>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/festivals" element={<Festivals />} />
-              <Route path="/events" element={<EventPage />} />
-              <Route path="/reactions" element={<Reaction />} />
+              <Route path="/festivals" element={onlyFor("festivals", <Festivals />)} />
+              <Route path="/events" element={onlyFor("events", <EventPage />)} />
+              <Route path="/reactions" element={onlyFor("reactions", <Reaction />)} />
               <Route path="/approvals" element={<Approvals />} />
               <Route path="/history" element={<History />} />
               <Route path="/clients" element={<Clients onChanged={refresh} onSwitch={switchClient} />} />
@@ -142,5 +146,13 @@ export default function App() {
         </div>
       </div>
     </StatusContext.Provider>
+  );
+}
+
+function NotForCategory({ category }) {
+  return (
+    <div className="page">
+      <div className="notice info">This page isn't used for {category ? `${category} clients` : "this client"}. Change the post types on the Clients page if needed.</div>
+    </div>
   );
 }

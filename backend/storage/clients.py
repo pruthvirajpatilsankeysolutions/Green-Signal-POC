@@ -1,5 +1,4 @@
 import contextvars
-import profile
 import re
 import uuid
 from pathlib import Path
@@ -9,8 +8,9 @@ from sqlalchemy.exc import OperationalError
 
 from config import ASSETS_DIR, ROOT
 from storage.db import Asset, Client, Session, StyleExample, init_db
+from storage.categories import ALIASES, CATEGORIES, access, clean_post_types
 
-CLIENT_TYPES = ["politician", "business", "institution", "ngo", "personal"]
+CLIENT_TYPES = list(CATEGORIES) + list(ALIASES)
 STYLE_KINDS = ["tribute", "solemn", "greeting", "congratulate", "condolence", "event"]
 ASSET_KINDS = ["banner", "logo", "leader"]
 IMAGE_TYPES = [".png", ".jpg", ".jpeg", ".webp"]
@@ -18,25 +18,6 @@ MAX_EXAMPLES = 8
 
 _current = contextvars.ContextVar("current_client_id", default=None)
 _ready = False
-
-
-def ensure_db_ready():
-    global _ready
-    if _ready:
-        return
-    try:
-        init_db()
-    except OperationalError as e:
-        raise RuntimeError(
-            "Can't connect to PostgreSQL. Check that it is running and that DB_HOST, DB_PORT, "
-            f"DB_NAME, DB_USER and DB_PASSWORD in .env are correct. ({str(e.orig).splitlines()[0]})"
-        ) from None
-
-    with Session() as s:
-        has_clients = s.scalar(select(Client).limit(1)) is not None
-    if not has_clients:
-        _migrate_from_config()
-    _ready = True
 
 
 def ensure_ready():
@@ -182,6 +163,9 @@ def profile(client_id):
         "accent_color": c.accent_color,
         "fixed_hashtags": c.fixed_hashtags or [],
         "show_ai_label": c.show_ai_label,
+        "phone": c.phone or "",
+        "address": c.address or "",
+        **access({"type": c.client_type, "post_types": c.post_types}),
         "footer_image": full(banner.path) if banner else "",
         "logo": full(logo.path) if logo else "",
         "leader_photos": [full(a.path) for a in assets if a.kind == "leader"],
@@ -209,10 +193,12 @@ def profile(client_id):
 
 
 # ---------------------------------------------------------------- write
-def create_client(name, client_type="politician", handle="", client_id=""):
+def create_client(name, client_type="politician", handle="", client_id="", post_types=None):
     ensure_ready()
     if client_type not in CLIENT_TYPES:
         raise ValueError(f"Type must be one of: {', '.join(CLIENT_TYPES)}")
+    if post_types is not None and not clean_post_types(post_types):
+        raise ValueError("Pick at least one post type for this client.")
     cid = make_id(client_id or handle or name)
     with Session() as s:
         if s.get(Client, cid):
@@ -223,11 +209,11 @@ def create_client(name, client_type="politician", handle="", client_id=""):
                 name=name.strip(),
                 client_type=client_type,
                 handle=handle.strip(),
+                post_types=clean_post_types(post_types),
             )
         )
         s.commit()
     return profile(cid)
-
 
 EDITABLE = {
     "name": "name",
@@ -237,6 +223,10 @@ EDITABLE = {
     "accent_color": "accent_color",
     "fixed_hashtags": "fixed_hashtags",
     "show_ai_label": "show_ai_label",
+    "show_ai_label": "show_ai_label",
+    "phone": "phone",
+    "address": "address",
+    "post_types": "post_types",
 }
 
 
@@ -249,7 +239,12 @@ def update_client(client_id, **fields):
             if key in fields and fields[key] is not None:
                 if key == "type" and fields[key] not in CLIENT_TYPES:
                     raise ValueError(f"Type must be one of: {', '.join(CLIENT_TYPES)}")
-                setattr(c, column, fields[key])
+                value = fields[key]
+                if key == "post_types":
+                    value = clean_post_types(value)
+                    if not value:
+                        raise ValueError("Pick at least one post type for this client.")
+                setattr(c, column, value)
         s.commit()
     return profile(client_id)
 

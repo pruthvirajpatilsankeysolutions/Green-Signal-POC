@@ -3,7 +3,7 @@ import { Plus, Trash2, Upload } from "lucide-react";
 import { api, getClientId } from "../api.js";
 import Notice from "../components/Notice.jsx";
 
-const TYPE_NAMES = { politician: "Politician", business: "Business", institution: "Institution", ngo: "NGO", personal: "Personal brand" };
+const labelsOf = (ids, all) => ids.map((t) => all.find((p) => p.id === t)?.label).filter(Boolean);
 const KIND_NAMES = {
   tribute: "Jayanti (tribute)", solemn: "Punyatithi", greeting: "Festival / special day",
   congratulate: "News: congratulate", condolence: "News: condolence", event: "Event",
@@ -16,12 +16,16 @@ const ASSET_INFO = {
 
 export default function Clients({ onChanged, onSwitch }) {
   const [list, setList] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [postTypes, setPostTypes] = useState([]);
   const [selected, setSelected] = useState(getClientId());
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
 
   const load = () => api.clients().then((d) => {
     setList(d.clients);
+    setCategories(d.categories || []);
+    setPostTypes(d.post_types || []);
     if (!d.clients.find((c) => c.id === selected) && d.clients[0]) setSelected(d.clients[0].id);
   }).catch((e) => setError(e.message));
 
@@ -48,14 +52,14 @@ export default function Clients({ onChanged, onSwitch }) {
                 <span className="avatar" aria-hidden="true">{c.name.slice(0, 1)}</span>
                 <span className="occasion-text">
                   <span className="mr">{c.name}</span>
-                  <span className="muted">{TYPE_NAMES[c.type] || c.type}{c.handle ? `, ${c.handle}` : ""}</span>
+                  <span className="muted">{categories.find((k) => k.id === c.type)?.label || "School / college"}{c.handle ? `, ${c.handle}` : ""}</span>
                 </span>
               </button>
             </li>
           ))}
         </ul>
 
-        {adding ? <NewClient onCreated={created} onCancel={() => setAdding(false)} />
+        {adding ? <NewClient categories={categories} postTypes={postTypes} onCreated={created} onCancel={() => setAdding(false)} />
           : selected ? <ClientEditor key={selected} id={selected} onSaved={() => { load(); onChanged(); }} onSwitch={onSwitch} />
           : <p className="empty">Add your first client.</p>}
       </div>
@@ -63,13 +67,50 @@ export default function Clients({ onChanged, onSwitch }) {
   );
 }
 
-function NewClient({ onCreated, onCancel }) {
-  const [form, setForm] = useState({ name: "", type: "politician", handle: "" });
+function CategoryPicker({ categories, postTypes, value, onChange }) {
+  return (
+    <div className="cat-grid" role="radiogroup" aria-label="Client category">
+      {categories.map((k) => (
+        <button key={k.id} type="button" role="radio" aria-checked={value === k.id}
+                className={`cat-card${value === k.id ? " on" : ""}`} onClick={() => onChange(k.id)}>
+          <span className="cat-title">{k.label}</span>
+          <span className="cat-desc">{k.description}</span>
+          <span className="cat-pages">Suggested: {labelsOf(k.post_types, postTypes).join(" · ")}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PostTypePicker({ postTypes, value, onChange }) {
+  const toggle = (id) => onChange(value.includes(id) ? value.filter((t) => t !== id) : [...value, id]);
+  return (
+    <div className="pt-grid" role="group" aria-label="Post types">
+      {postTypes.map((t) => (
+        <label key={t.id} className={`pt-card${value.includes(t.id) ? " on" : ""}`}>
+          <input type="checkbox" checked={value.includes(t.id)} onChange={() => toggle(t.id)} />
+          <span>
+            <span className="pt-title">{t.label}</span>
+            <span className="pt-desc">{t.description}</span>
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function NewClient({ categories, postTypes, onCreated, onCancel }) {
+  const suggestion = (type) => categories.find((k) => k.id === type)?.post_types || [];
+  const [form, setForm] = useState({ name: "", type: "politician", handle: "", post_types: suggestion("politician") });
+  useEffect(() => {                                    // fill the ticks once the categories arrive
+    if (categories.length && !form.post_types.length) setForm((f) => ({ ...f, post_types: suggestion(f.type) }));
+  }, [categories]); // eslint-disable-line react-hooks/exhaustive-deps
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const save = async () => {
     if (!form.name.trim()) { setError("Add the client's name."); return; }
+    if (!form.post_types.length) { setError("Pick at least one post type."); return; }
     setBusy(true); setError("");
     try { onCreated(await api.createClient(form)); } catch (e) { setError(e.message); setBusy(false); }
   };
@@ -81,17 +122,18 @@ function NewClient({ onCreated, onCancel }) {
         <span className="field-label">Name (as it should appear on posts)</span>
         <input className="mr" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
       </label>
-      <div className="row-2">
-        <label className="field">
-          <span className="field-label">Type</span>
-          <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-            {Object.entries(TYPE_NAMES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        </label>
-        <label className="field">
-          <span className="field-label">Instagram handle <span className="optional">optional</span></span>
-          <input value={form.handle} onChange={(e) => setForm({ ...form, handle: e.target.value })} placeholder="@handle" />
-        </label>
+      <label className="field">
+        <span className="field-label">Instagram handle <span className="optional">optional</span></span>
+        <input value={form.handle} onChange={(e) => setForm({ ...form, handle: e.target.value })} placeholder="@handle" />
+      </label>
+      <div className="field">
+        <span className="field-label">Category <span className="optional">decides which posts, occasions and caption style this client gets</span></span>
+        <CategoryPicker categories={categories} postTypes={postTypes} value={form.type}
+                        onChange={(type) => setForm({ ...form, type, post_types: suggestion(type) })} />
+      </div>
+      <div className="field">
+        <span className="field-label">Post types this client needs <span className="optional">pre-filled from the category; tick or untick</span></span>
+        <PostTypePicker postTypes={postTypes} value={form.post_types} onChange={(post_types) => setForm({ ...form, post_types })} />
       </div>
       <Notice kind="error">{error}</Notice>
       <div className="actions end">
@@ -115,7 +157,8 @@ function ClientEditor({ id, onSaved, onSwitch }) {
     setForm({
       name: c.name, type: c.type, handle: c.handle, accent_color: c.accent_color,
       designation_lines: c.designation_lines.join("\n"), fixed_hashtags: c.fixed_hashtags.join(" "),
-      show_ai_label: c.show_ai_label,
+      show_ai_label: c.show_ai_label, phone: c.phone || "", address: c.address || "",
+      post_types: c.post_types || [],
     });
   };
 
@@ -127,6 +170,7 @@ function ClientEditor({ id, onSaved, onSwitch }) {
   };
 
   const saveProfile = async () => {
+    if (!form.post_types.length) { setError("Pick at least one post type."); return; }
     const ok = await act("save", () => api.updateClient(id, {
       ...form,
       designation_lines: form.designation_lines.split("\n").map((l) => l.trim()).filter(Boolean),
@@ -159,11 +203,20 @@ function ClientEditor({ id, onSaved, onSwitch }) {
             <input className="mr" value={form.name} onChange={set("name")} />
           </label>
           <label className="field">
-            <span className="field-label">Type</span>
+            <span className="field-label">Category</span>
             <select className="input" value={form.type} onChange={set("type")}>
-              {client.types.map((t) => <option key={t} value={t}>{TYPE_NAMES[t] || t}</option>)}
+              {client.categories.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
             </select>
+            <span className="hint">{client.categories.find((k) => k.id === form.type)?.description}</span>
           </label>
+        </div>
+        <div className="field">
+          <span className="field-label">Post types this client needs
+            <button type="button" className="link-btn" onClick={() => setForm({ ...form, post_types: client.categories.find((k) => k.id === form.type)?.post_types || [] })}>
+              Use the suggestion for this category
+            </button>
+          </span>
+          <PostTypePicker postTypes={client.all_post_types} value={form.post_types} onChange={(post_types) => setForm({ ...form, post_types })} />
         </div>
         <label className="field">
           <span className="field-label">Designation <span className="optional">one per line; shown if there is no banner</span></span>
@@ -180,6 +233,16 @@ function ClientEditor({ id, onSaved, onSwitch }) {
               <input type="color" value={form.accent_color} onChange={set("accent_color")} aria-label="Brand colour" />
               <input value={form.accent_color} onChange={set("accent_color")} />
             </span>
+          </label>
+        </div>
+        <div className="row-2">
+          <label className="field">
+            <span className="field-label">Phone <span className="optional">shown on business posts</span></span>
+            <input value={form.phone} onChange={set("phone")} placeholder="98220 12345" />
+          </label>
+          <label className="field">
+            <span className="field-label">Address <span className="optional">shown on business posts</span></span>
+            <input className="mr" value={form.address} onChange={set("address")} placeholder="शिवाजीनगर | कोथरूड, पुणे" />
           </label>
         </div>
         <label className="field">
