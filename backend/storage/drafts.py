@@ -100,7 +100,8 @@ def approve(draft_id):
     # every approved caption teaches the AI this client's style for next time
     from posts import style_kind
 
-    kind = style_kind(draft["type"], draft["details"].get("tone", ""))
+    details = draft["details"]
+    kind = style_kind(draft["type"], details.get("tone") or details.get("post_type", ""))
     text = draft["caption"] + (
         "\n\n" + " ".join(draft["hashtags"]) if draft["hashtags"] else ""
     )

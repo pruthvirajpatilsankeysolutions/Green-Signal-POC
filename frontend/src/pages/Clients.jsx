@@ -7,6 +7,7 @@ const labelsOf = (ids, all) => ids.map((t) => all.find((p) => p.id === t)?.label
 const KIND_NAMES = {
   tribute: "Jayanti (tribute)", solemn: "Punyatithi", greeting: "Festival / special day",
   congratulate: "News: congratulate", condolence: "News: condolence", event: "Event",
+  announcement: "Announcement", offer: "Offer", achievement: "Achievement", spotlight: "Person spotlight",
 };
 const ASSET_INFO = {
   banner: { title: "Footer banner", hint: "Logo, name and designation in one image. Replaces the old one.", multiple: false },
@@ -150,10 +151,12 @@ function ClientEditor({ id, onSaved, onSwitch }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
-  const [style, setStyle] = useState({ kind: "tribute", text: "" });
+  const [style, setStyle] = useState({ kind: "", text: "" });
 
   const fill = (c) => {
     setClient(c);
+    // the example type list follows this client's post types; keep the current pick if it's still there
+    setStyle((st) => ({ ...st, kind: c.style_kinds.includes(st.kind) ? st.kind : c.style_kinds[0] || "event" }));
     setForm({
       name: c.name, type: c.type, handle: c.handle, accent_color: c.accent_color,
       designation_lines: c.designation_lines.join("\n"), fixed_hashtags: c.fixed_hashtags.join(" "),

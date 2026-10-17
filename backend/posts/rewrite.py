@@ -8,7 +8,8 @@ from storage import drafts
 
 
 def rewrite(draft, instruction):
-    kind = style_kind(draft["type"], draft["details"].get("tone", ""))
+    details = draft["details"]
+    kind = style_kind(draft["type"], details.get("tone") or details.get("post_type", ""))
     system = client_intro(kind) + COMMON_RULES + (
         "\nYou are editing an existing caption. Apply the client's change exactly. "
         "Keep everything else the same, including the structure and hashtag language. "

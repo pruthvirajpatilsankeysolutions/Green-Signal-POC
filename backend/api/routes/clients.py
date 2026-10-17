@@ -22,7 +22,9 @@ def client_out(profile):
     out["types"] = [c["id"] for c in public_list()]
     out["categories"] = public_list()
     out["all_post_types"] = post_type_list()
-    out["style_kinds"] = clients.STYLE_KINDS
+    used = {s["kind"] for s in profile["styles"]}
+    out["style_kinds"] = profile["style_kinds"] + [k for k in clients.STYLE_KINDS
+                                                  if k in used and k not in profile["style_kinds"]]
     return out
 
 

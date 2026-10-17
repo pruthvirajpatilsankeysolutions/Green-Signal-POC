@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="mr">
+<head>
+{% include "_custom_base.html" %}
+<style>
+  .list { display: flex; flex-direction: column; gap: {{ 14 if story else 10 }}px; }
+  .item { display: flex; gap: 16px; align-items: flex-start; font: 600 {{ 40 if story else 34 }}px/1.35 "Mukta"; color: #3B2414; }
+  .item::before { content: ""; flex: none; width: 16px; height: 16px; margin-top: .55em; border-radius: 50%; background: {{ accent }}; }
+</style>
+</head>
+<body>
+  <div class="deco"></div>
+  <div class="content fit-box{% if not photo_uri %} center big{% endif %}">
+    <div class="badge">{{ kind_label }}</div>
+    <div class="headline shrink" data-min="44">{{ headline }}</div>
+    {% if photo_uri %}<div class="photo"><img src="{{ photo_uri }}"></div>{% endif %}
+    <div class="list">
+      {% for line in f.details_lines %}<div class="item shrink" data-min="22">{{ line }}</div>{% endfor %}
+    </div>
+    {% if f.when or f.place %}
+    <div class="chips">
+      {% if f.when %}<span class="chip shrink" data-min="20"><svg width="30" height="30" viewBox="0 0 24 24" fill="{{ accent }}"><path d="M7 2v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2zm12 8v10H5V10z"/></svg>{{ f.when }}</span>{% endif %}
+      {% if f.place %}<span class="chip shrink" data-min="20"><svg width="30" height="30" viewBox="0 0 24 24" fill="{{ accent }}"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>{{ f.place }}</span>{% endif %}
+    </div>
+    {% endif %}
+    {% if phone %}<div class="phone"><i><svg width="24" height="24" viewBox="0 0 24 24" fill="{{ accent }}"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z"/></svg></i>{{ phone }}</div>{% endif %}
+  </div>
+  {% include "_footer.html" %}
+  {% include "_fit.html" %}
+</body>
+</html>

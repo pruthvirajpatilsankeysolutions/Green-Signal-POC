@@ -10,6 +10,8 @@ const FILTERS = [
   { value: "rejected", label: "Rejected" },
 ];
 const TYPE_NAMES = { festival: "Festival", event: "Event", reaction: "News reaction" };
+const CUSTOM_NAMES = { announcement: "Announcement", offer: "Offer", achievement: "Achievement", spotlight: "Person spotlight" };
+const typeName = (d) => (d.type === "custom" ? CUSTOM_NAMES[d.details?.post_type] || "Post" : TYPE_NAMES[d.type]);
 
 export default function History() {
   const [filter, setFilter] = useState("");
@@ -36,7 +38,7 @@ export default function History() {
             {rows.map((d) => (
               <tr key={d.id}>
                 <td className="nowrap">{d.created_at}</td>
-                <td>{TYPE_NAMES[d.type]}</td>
+                <td>{typeName(d)}</td>
                 <td className="mr">{d.title}</td>
                 <td><span className={`tag status-${d.status}`}>{d.status}</span></td>
                 <td>{d.version}</td>

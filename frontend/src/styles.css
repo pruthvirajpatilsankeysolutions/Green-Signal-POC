@@ -4136,3 +4136,84 @@ tr:last-child td {
   flex: 1;
   min-width: 220px;
 }
+
+
+/* ============ Create post (announcement, offer, achievement, person spotlight) ============ */
+.cp-types {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.cp-type {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  padding: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+}
+
+.cp-type svg {
+  color: var(--primary);
+  flex: none;
+  margin-top: 2px;
+}
+
+.cp-type>span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cp-type:hover {
+  border-color: var(--primary);
+}
+
+.cp-type.on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 3px var(--primary-ring);
+}
+
+.cp-stat {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.cp-photo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cp-photo img,
+.cp-photo-empty {
+  width: 84px;
+  height: 84px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex: none;
+}
+
+.cp-photo-empty {
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  color: var(--text-3);
+}
+
+.cp-headline {
+  font-weight: 800;
+  font-size: 18px;
+}

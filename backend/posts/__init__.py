@@ -19,13 +19,16 @@ def marathi_digits(text):
 
 
 def style_kind(post_type, tone=""):
-    """Which group of past captions to copy: greeting, tribute, solemn, congratulate, condolence, event."""
+    """Which group of past captions to copy: greeting, tribute, solemn, congratulate, condolence, event,
+    or a Create-post type (announcement, offer, achievement, spotlight)."""
     if post_type == "festival":
         return {"greeting": "greeting", "tribute": "tribute", "solemn": "solemn"}.get(
             tone, "tribute"
         )
     if post_type == "reaction":
         return "condolence" if tone == "condolence" else "congratulate"
+    if post_type == "custom" and tone in ("announcement", "offer", "achievement", "spotlight"):
+        return tone                      # Create-post types have their own examples
     return "event"
 
 

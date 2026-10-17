@@ -7,6 +7,8 @@ import FeedPreview from "../components/FeedPreview.jsx";
 import Notice from "../components/Notice.jsx";
 
 const TYPE_NAMES = { festival: "Festival", event: "Event", reaction: "News reaction" };
+const CUSTOM_NAMES = { announcement: "Announcement", offer: "Offer", achievement: "Achievement", spotlight: "Person spotlight" };
+const typeName = (d) => (d.type === "custom" ? CUSTOM_NAMES[d.details?.post_type] || "Post" : TYPE_NAMES[d.type]);
 
 export default function Approvals() {
   const { refresh } = useStatus();
@@ -79,7 +81,7 @@ export default function Approvals() {
                       {d.image_urls[0] ? <img src={d.image_urls[0]} alt="" /> : <span className="queue-noimg" />}
                       <span className="queue-text">
                         <span className="mr strong ellipsis">{d.title}</span>
-                        <span className="muted">{TYPE_NAMES[d.type]}, v{d.version}</span>
+                        <span className="muted">{typeName(d)}, v{d.version}</span>
                         <span className="muted small">{tab === "approved" ? `Approved ${d.approved_at}` : d.created_at}</span>
                       </span>
                       {d.warnings.length > 0 && <span className="warn-dot" title="Has warnings" />}
@@ -120,7 +122,7 @@ function ReviewPanel({ draft, onDone }) {
       <div className="detail-preview"><FeedPreview draft={draft} /></div>
       <div className="detail-side">
         <div>
-          <span className="eyebrow-tag">{TYPE_NAMES[draft.type]}</span>
+          <span className="eyebrow-tag">{typeName(draft)}</span>
           <h2 className="mr">{draft.title}</h2>
           <p className="muted">Version {draft.version}, created {draft.created_at}</p>
         </div>

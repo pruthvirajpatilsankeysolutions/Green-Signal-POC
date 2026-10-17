@@ -17,6 +17,7 @@ from api.routes import designs as designs_routes
 from api.routes import drafts as drafts_routes
 from api.routes import events as events_routes
 from api.routes import festivals as festivals_routes
+from api.routes import custom_posts as custom_routes
 from api.routes import month_plan as month_plan_routes
 from api.routes import plans as plans_routes
 from api.routes import reactions as reactions_routes
@@ -42,6 +43,7 @@ app.include_router(clients_routes.router)
 app.include_router(festivals_routes.router)
 app.include_router(plans_routes.router)
 app.include_router(month_plan_routes.router)
+app.include_router(custom_routes.router)
 app.include_router(events_routes.router)
 app.include_router(reactions_routes.router)
 app.include_router(drafts_routes.router)

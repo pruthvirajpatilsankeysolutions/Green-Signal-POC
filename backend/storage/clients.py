@@ -11,7 +11,8 @@ from storage.db import Asset, Client, Session, StyleExample, init_db
 from storage.categories import ALIASES, CATEGORIES, access, clean_post_types
 
 CLIENT_TYPES = list(CATEGORIES) + list(ALIASES)
-STYLE_KINDS = ["tribute", "solemn", "greeting", "congratulate", "condolence", "event"]
+STYLE_KINDS = ["tribute", "solemn", "greeting", "congratulate", "condolence", "event",
+               "announcement", "offer", "achievement", "spotlight"]
 ASSET_KINDS = ["banner", "logo", "leader"]
 IMAGE_TYPES = [".png", ".jpg", ".jpeg", ".webp"]
 MAX_EXAMPLES = 8

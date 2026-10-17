@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import {
-  CalendarHeart, Camera, CheckCircle2, ChevronRight, History as HistoryIcon, LayoutDashboard, Newspaper, Users,
+  CalendarHeart, Camera, CheckCircle2, ChevronRight, History as HistoryIcon, LayoutDashboard, Newspaper, PlusSquare, Users,
 } from "lucide-react";
 import { api, getClientId, setClientId } from "./api.js";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -12,6 +12,7 @@ import Approvals from "./pages/Approvals.jsx";
 import History from "./pages/History.jsx";
 import Clients from "./pages/Clients.jsx";
 import Editor from "./pages/Editor.jsx";
+import CreatePost from "./pages/CreatePost.jsx";
 
 const StatusContext = createContext({ status: null, refresh: () => {} });
 export const useStatus = () => useContext(StatusContext);
@@ -24,6 +25,7 @@ const NAV = [
   {
     title: "Create",
     items: [
+      { to: "/create", label: "Create post", icon: PlusSquare, feature: "create" },
       { to: "/festivals", label: "Festivals", icon: CalendarHeart, feature: "festivals" },
       { to: "/events", label: "Events", icon: Camera, feature: "events" },
       { to: "/reactions", label: "News reactions", icon: Newspaper, feature: "reactions" },
@@ -44,7 +46,7 @@ const NAV = [
 
 const PAGE_NAMES = {
   "/": "Dashboard", "/festivals": "Festivals", "/events": "Events",
-  "/reactions": "News reactions", "/approvals": "Approvals", "/history": "History", "/clients": "Clients",
+  "/reactions": "News reactions", "/create": "Create post", "/approvals": "Approvals", "/history": "History", "/clients": "Clients",
 };
 const pageName = (path) => PAGE_NAMES[path] || (path.startsWith("/editor") ? "Edit design" : "");
 
@@ -135,6 +137,7 @@ export default function App() {
             {error && <div className="notice error">{error}</div>}
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/create" element={onlyFor("create", <CreatePost />)} />
               <Route path="/festivals" element={onlyFor("festivals", <Festivals />)} />
               <Route path="/events" element={onlyFor("events", <EventPage />)} />
               <Route path="/reactions" element={onlyFor("reactions", <Reaction />)} />
