@@ -9,6 +9,13 @@
   // report fonts that failed to load (wrong path or missing file)
   document.fonts.forEach(f => { if (f.status === 'error') overflow.push(f.family + ' font did not load'); });
 
+  // 0) wrapping text with one long word (e.g. inside a badge): shrink until the longest word fits the width
+  document.querySelectorAll('.fit-w').forEach(el => {
+    const min = parseFloat(el.dataset.min || 20);
+    let s = size(el);
+    while (el.scrollWidth > el.clientWidth + TOL && s > min) { s -= 2; el.style.fontSize = s + 'px'; }
+  });
+
   // 1) single-line text: shrink until it fits the width
   document.querySelectorAll('.fit').forEach(el => {
     const min = parseFloat(el.dataset.min || 24);

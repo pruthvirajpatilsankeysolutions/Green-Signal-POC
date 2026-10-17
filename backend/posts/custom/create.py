@@ -5,6 +5,8 @@ Create-post flow for the new post types (announcement, offer, achievement, perso
   3. poster                   type template, client's colours and banner, feed + story
   4. save draft               waits for approval like every other post
 """
+from PIL import Image
+
 from ai.claude import ask_json
 from design.poster import file_uri, footer_data, render
 from posts import COMMON_RULES, client_intro, final_hashtags, marathi_digits
@@ -99,6 +101,19 @@ Write 3 clearly different versions.""")
             "captions": captions, "hashtags": tags[:15], "headline_max": HEADLINE_MAX}
 
 
+def photo_shape(path):
+    """portrait / square / landscape, so the poster can pick the layout that shows the photo best."""
+    if not path:
+        return ""
+    try:
+        with Image.open(path) as im:
+            w, h = im.size
+    except OSError:
+        return "landscape"
+    ratio = w / h
+    return "portrait" if ratio < 0.85 else "landscape" if ratio > 1.25 else "square"
+
+
 def make_post(ptype, form, chosen, photo_path=""):
     """Poster + caption from the form and the chosen words. Returns the draft."""
     form = check_form(ptype, form)
@@ -125,6 +140,7 @@ def make_post(ptype, form, chosen, photo_path=""):
         "kind_label": ANNOUNCEMENT_KINDS.get(form.get("kind"), ""),
         "occasion_label": SPOTLIGHT_OCCASIONS.get(form.get("occasion"), ""),
         "photo_uri": file_uri(photo_path) if photo_path else "",
+        "photo_shape": photo_shape(photo_path),
         "phone": md(form.get("contact") or client.get("phone") or ""),
         "address": client.get("address", ""),
         "label": "",

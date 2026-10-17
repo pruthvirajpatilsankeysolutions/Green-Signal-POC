@@ -4,260 +4,37 @@
 {% set footer_h = (250 if story else 205) if img_footer else 230 %}
 {% include "_base.html" %}
 <style>
-    body {
-        background: #FFF8EC;
-    }
-
-    /* soft brand-coloured shapes in the corners */
-    .deco {
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        overflow: hidden;
-    }
-
-    .deco::before {
-        content: "";
-        position: absolute;
-        width: 620px;
-        height: 620px;
-        border-radius: 50%;
-        right: -260px;
-        top: -300px;
-
-        background: {
-                {
-                accent
-            }
-        }
-
-        ;
-        opacity: .10;
-    }
-
-    .deco::after {
-        content: "";
-        position: absolute;
-        width: 520px;
-        height: 520px;
-        border-radius: 50%;
-        left: -280px;
-
-        bottom: {
-                {
-                footer_h - 120
-            }
-        }
-
-        px;
-
-        background: {
-                {
-                accent
-            }
-        }
-
-        ;
-        opacity: .07;
-    }
-
-    .content {
-        position: absolute;
-        z-index: 3;
-        left: 64px;
-        right: 64px;
-
-        top: {
-                {
-                70 if story else 46
-            }
-        }
-
-        px;
-
-        bottom: {
-                {
-                footer_h+(60 if story else 30)
-            }
-        }
-
-        px;
-        display: flex;
-        flex-direction: column;
-
-        gap: {
-                {
-                22 if story else 16
-            }
-        }
-
-        px;
-    }
-
-    .badge {
-        align-self: flex-start;
-
-        font: 800 {
-                {
-                34 if story else 30
-            }
-        }
-
-        px/1 "Mukta";
-        color: #fff;
-
-        background: {
-                {
-                accent
-            }
-        }
-
-        ;
-        padding: 14px 28px 12px;
-        border-radius: 999px;
-        box-shadow: 0 6px 16px rgba(0, 0, 0, .12);
-    }
-
-    .headline {
-        font-family: "Baloo 2", "Mukta", sans-serif;
-        font-weight: 800;
-        color: #2B1A0E;
-
-        font-size: {
-                {
-                92 if story else 74
-            }
-        }
-
-        px;
-        line-height: 1.18;
-    }
-
-    .photo {
-        flex: 1 1 auto;
-        min-height: 0;
-        border-radius: 28px;
-        overflow: hidden;
-        background: #EFE4D2;
-        box-shadow: 0 10px 30px rgba(43, 26, 14, .16);
-    }
-
-    .photo img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
-
-    .spacer {
-        flex: 1 1 auto;
-    }
-
-    /* no photo: centre the text and make it larger, so the poster doesn't look empty */
-    .content.center {
-        justify-content: center;
-    }
-
-    .content.big .headline {
-        font-size: {
-                {
-                116 if story else 96
-            }
-        }
-
-        px;
-    }
-
-    .content.big .item,
-    .content.big .details {
-        font-size: {
-                {
-                48 if story else 42
-            }
-        }
-
-        px;
-    }
-
-    .content.big .chip {
-        font-size: {
-                {
-                38 if story else 34
-            }
-        }
-
-        px;
-    }
-
-    .chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 14px;
-    }
-
-    .chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 12px;
-        background: #fff;
-
-        border: 2px solid {
-                {
-                accent
-            }
-        }
-
-        33;
-        border-radius: 18px;
-        padding: 12px 20px;
-
-        font: 600 {
-                {
-                32 if story else 28
-            }
-        }
-
-        px/1.25 "Mukta";
-        color: #3B2414;
-    }
-
-    .chip svg {
-        flex: none;
-    }
-
-    .phone {
-        align-self: flex-start;
-        display: inline-flex;
-        align-items: center;
-        gap: 14px;
-
-        background: {
-                {
-                accent
-            }
-        }
-
-        ;
-        color: #fff;
-        border-radius: 999px;
-        padding: 12px 28px 12px 14px;
-
-        font: 800 {
-                {
-                38 if story else 34
-            }
-        }
-
-        px/1 "Mukta";
-        letter-spacing: .02em;
-    }
-
-    .phone i {
-        width: 46px;
-        height: 46px;
-        border-radius: 50%;
-        background: #fff;
-        display: grid;
-        place-items: center;
-    }
+  body { background: #FFF8EC; }
+  /* soft brand-coloured shapes in the corners */
+  .deco { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+  .deco::before { content: ""; position: absolute; width: 620px; height: 620px; border-radius: 50%;
+                  right: -260px; top: -300px; background: {{ accent }}; opacity: .10; }
+  .deco::after  { content: ""; position: absolute; width: 520px; height: 520px; border-radius: 50%;
+                  left: -280px; bottom: {{ footer_h - 120 }}px; background: {{ accent }}; opacity: .07; }
+  .content { position: absolute; z-index: 3; left: 64px; right: 64px; top: {{ 70 if story else 46 }}px;
+             bottom: {{ footer_h + (60 if story else 30) }}px; display: flex; flex-direction: column; gap: {{ 22 if story else 16 }}px; }
+  .badge { align-self: flex-start; font: 800 {{ 34 if story else 30 }}px/1 "Mukta"; color: #fff; background: {{ accent }};
+           padding: 14px 28px 12px; border-radius: 999px; box-shadow: 0 6px 16px rgba(0,0,0,.12); }
+  .headline { font-family: "Baloo 2", "Mukta", sans-serif; font-weight: 800; color: #2B1A0E;
+              font-size: {{ 92 if story else 74 }}px; line-height: 1.18; }
+  /* text keeps its size; the photo takes whatever space is left (never pushed by its own pixel size) */
+  .content > * { flex: none; }
+  .content > .photo, .content > .stage { flex: 1 1 0; min-height: {{ 30 if story else 22 }}%; }
+  .photo { position: relative; min-height: 0; border-radius: 28px; overflow: hidden; background: #EFE4D2;
+           box-shadow: 0 10px 30px rgba(43,26,14,.16); }
+  .photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
+               object-position: center {{ photo_focus | default(40) }}%; }
+  .spacer { flex: 1 1 auto; }
+  /* no photo: centre the text and make it larger, so the poster doesn't look empty */
+  .content.center { justify-content: center; }
+  .content.big .headline { font-size: {{ 116 if story else 96 }}px; }
+  .content.big .item, .content.big .details { font-size: {{ 48 if story else 42 }}px; }
+  .content.big .chip { font-size: {{ 38 if story else 34 }}px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 14px; }
+  .chip { display: inline-flex; align-items: center; gap: 12px; background: #fff; border: 2px solid {{ accent }}33;
+          border-radius: 18px; padding: 12px 20px; font: 600 {{ 32 if story else 28 }}px/1.25 "Mukta"; color: #3B2414; }
+  .chip svg { flex: none; }
+  .phone { align-self: flex-start; display: inline-flex; align-items: center; gap: 14px; background: {{ accent }}; color: #fff;
+           border-radius: 999px; padding: 12px 28px 12px 14px; font: 800 {{ 38 if story else 34 }}px/1 "Mukta"; letter-spacing: .02em; }
+  .phone i { width: 46px; height: 46px; border-radius: 50%; background: #fff; display: grid; place-items: center; }
 </style>

@@ -274,10 +274,27 @@ MEASURE_JS = r"""
     texts.push(el);
   });
   texts.forEach((el) => {
-    const r = el.getBoundingClientRect(); if (!r.width || !r.height) return;
+    const box = el.getBoundingClientRect(); if (!box.width || !box.height) return;
     const cs = getComputedStyle(el);
     const size = parseFloat(cs.fontSize);
     const lh = cs.lineHeight === "normal" ? size * 1.25 : parseFloat(cs.lineHeight);
+    // where the letters themselves are drawn (not the box: pills, chips and badges have padding and icons)
+    let r = box;
+    const lines = [];
+    el.childNodes.forEach((n) => {
+      if (n.nodeType !== 3 || !n.textContent.trim()) return;
+      const range = document.createRange(); range.selectNodeContents(n);
+      [...range.getClientRects()].forEach((q) => { if (q.width && q.height) lines.push(q); });
+    });
+    if (lines.length) {
+      const left = Math.min(...lines.map((q) => q.left)), right = Math.max(...lines.map((q) => q.right));
+      const top = Math.min(...lines.map((q) => q.top)), bottom = Math.max(...lines.map((q) => q.bottom));
+      const first = lines.find((q) => q.top === top);
+      const lead = Math.max(0, (lh - first.height) / 2);   // the line box is taller than the letters
+      const centred = ["center"].includes(cs.textAlign);
+      r = { left: centred ? box.left : left, width: centred ? box.width : right - left,
+            top: top - lead, height: bottom - top + 2 * lead };
+    }
     const clipText = cs.webkitBackgroundClip === "text" || cs.backgroundClip === "text";
     const grad = clipText && cs.backgroundImage.includes("gradient") ? colors(cs.backgroundImage) : null;
     items.push({
@@ -292,7 +309,17 @@ MEASURE_JS = r"""
   });
 
   // hide what became layers, so the next screenshot is the clean background
-  texts.forEach((el) => { el.style.visibility = "hidden"; });
+  // hide only the letters: the element's own background (pills, badges, price boxes), its icons
+  // and bullets stay in the background picture, so a white text on a coloured pill keeps its pill
+  texts.forEach((el) => {
+    const cs = getComputedStyle(el);
+    if (cs.webkitBackgroundClip === "text" || cs.backgroundClip === "text") el.style.backgroundImage = "none";
+    el.style.color = "transparent";
+    el.style.webkitTextFillColor = "transparent";
+    el.style.webkitTextStroke = "0";
+    el.style.textShadow = "none";
+    el.style.filter = "none";
+  });
   images.forEach((img) => { img.style.visibility = "hidden"; });
   return items;
 }

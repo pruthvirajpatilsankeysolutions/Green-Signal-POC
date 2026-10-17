@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="mr">
 <head>
+{% set story = (size == 'story') %}
 {% include "_custom_base.html" %}
 <style>
   .list { display: flex; flex-direction: column; gap: {{ 14 if story else 10 }}px; }
