@@ -3,14 +3,15 @@ Safety checks for news reaction posts.
 A wrong score or name under a politician's name is a public embarrassment,
 so numbers are checked by code, not only by the AI.
 """
+
 import re
 
-DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+from storage.languages import to_ascii_digits
 
 
 def numbers_in(text):
-    """All numbers in a text (Marathi digits counted too)."""
-    return set(re.findall(r"\d+", str(text).translate(DEVANAGARI_DIGITS)))
+    """All numbers in a text (digits of every Indian language counted too)."""
+    return set(re.findall(r"[0-9]+", to_ascii_digits(text)))
 
 
 def _facts_text(facts):

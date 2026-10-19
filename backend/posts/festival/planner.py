@@ -10,7 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from ai.claude import ask_json
 from posts import COMMON_RULES, client_intro, final_hashtags, marathi_digits, style_kind
-from posts.festival.prompts import FORMATS
+from posts.festival.prompts import formats
+from storage.languages import get as language
 from storage.clients import current
 
 # angles per client category: the 4 versions really differ
@@ -29,7 +30,7 @@ ANGLES = {
 }
 TRIBUTE_ANGLES = ["Respectful", "Life and work", "Saying / quote", "Inspiration"]
 
-# length limits so the words always fit the poster (Marathi letters counted as written)
+# length limits so the words always fit the poster (letters counted as written)
 LIMITS = {"hook": 80, "line_small": 45, "line_big": 18, "line_end": 45}
 PARTS = ("hook", "poster", "caption", "hashtags", "title")
 MAX_HASHTAGS = 15  # Instagram allows 30; 5 to 15 works best
@@ -47,7 +48,7 @@ def angles_for(festival):
 def _system(festival):
     tone = festival["tone"]
     return (
-        client_intro(style_kind("festival", tone)) + COMMON_RULES + FORMATS[tone] + f"""
+        client_intro(style_kind("festival", tone)) + COMMON_RULES + formats(tone) + f"""
 Parts of a post:
 - hook: the FIRST line of the caption, short and catchy, max {LIMITS['hook']} letters, no hashtags.
 - poster: the words printed ON the poster image:
@@ -55,7 +56,7 @@ Parts of a post:
     line_big: the big title, 1 or 2 words, max {LIMITS['line_big']} letters
     line_end: the closing wishes line, max {LIMITS['line_end']} letters (use | for a line break)
 - caption: the rest of the caption AFTER the hook (2 to 4 short paragraphs). Do not repeat the hook.
-- hashtags: 5 to 8 hashtags as a list: Marathi ones (words joined with _) and a few English ones.
+- hashtags: 5 to 8 hashtags as a list: {language(current()["language"])["name"]} ones (words joined with _) and a few English ones.
 - picture: ONE English sentence describing a background picture for this post, with NO text in it.
 """
     )
@@ -133,16 +134,17 @@ def generate(festival):
     if not options["hooks"]:
         raise ValueError("The AI did not return any versions. Please try again.")
 
-    # the calendar's own text stays available as the "Standard" poster option
-    options["posters"].append(
-        {
-            "angle": "Standard",
-            "line_small": festival["line_small"],
-            "line_big": festival["line_big"],
-            "line_end": festival["line_end"],
-            "too_long": [],
-        }
-    )
+    # the calendar's own text stays available as the "Standard" poster option (when it has text in this language)
+    if festival["line_big"]:
+        options["posters"].append(
+            {
+                "angle": "Standard",
+                "line_small": festival["line_small"],
+                "line_big": festival["line_big"],
+                "line_end": festival["line_end"],
+                "too_long": [],
+            }
+        )
     chosen = {
         "hook": options["hooks"][0]["text"],
         "poster": {
@@ -273,9 +275,10 @@ def plan_hooks_titles(festival, notes=""):
             )
     if not hooks or not titles:
         raise ValueError("The AI did not return hooks and titles. Please try again.")
-    titles.append(
-        {"angle": "Standard", "text": festival["line_big"], "too_long": False}
-    )
+    if festival["line_big"]:
+        titles.append(
+            {"angle": "Standard", "text": festival["line_big"], "too_long": False}
+        )
     options = {"month": True, "hooks": hooks, "titles": titles}
     chosen = {
         "hook": hooks[0]["text"],

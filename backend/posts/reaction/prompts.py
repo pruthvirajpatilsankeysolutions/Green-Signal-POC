@@ -2,6 +2,7 @@
 Prompts for news reaction posts.
 Two separate steps: (1) pull facts from the news, (2) write using only those facts.
 """
+
 from posts import COMMON_RULES, client_intro, style_kind
 
 EXTRACT_SYSTEM = """
@@ -59,7 +60,7 @@ Calm and respectful. Hashtags: 0 to 2.
 }
 
 CARD_FIELDS = """
-Also write short text for a poster card (used only if there is no photo), in Marathi:
+Also write short text for a poster card (used only if there is no photo), in the post's language:
 - card_headline: max 4 words
 - card_detail: max 10 words; do NOT repeat the score here
 - card_message: max 7 words
@@ -74,9 +75,14 @@ def extract_prompt(team_line, article_text):
 
 
 def caption_prompt(team_line, tone, mention, facts, memories=""):
-    system = (client_intro(style_kind("reaction", tone)) + COMMON_RULES + FORMATS[tone] + CARD_FIELDS
-              + '\nReturn JSON: {"caption": "...", "hashtags": ["#..."], '
-                '"card_headline": "...", "card_detail": "...", "card_message": "..."}')
+    system = (
+        client_intro(style_kind("reaction", tone))
+        + COMMON_RULES
+        + FORMATS[tone]
+        + CARD_FIELDS
+        + '\nReturn JSON: {"caption": "...", "hashtags": ["#..."], '
+        '"card_headline": "...", "card_detail": "...", "card_message": "..."}'
+    )
     user = (
         f"Team's summary: {team_line}\n"
         f"Mention specially: {mention or 'nobody extra'}\n"

@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from api.helpers import run, to_url
 from storage import clients
 from storage.categories import ALIASES, post_type_list, public_list
+from storage.languages import public_list as language_list
+from storage.languages import regions_list
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
@@ -22,9 +24,12 @@ def client_out(profile):
     out["types"] = [c["id"] for c in public_list()]
     out["categories"] = public_list()
     out["all_post_types"] = post_type_list()
+    out["languages"] = language_list()
+    out["regions"] = regions_list()
     used = {s["kind"] for s in profile["styles"]}
-    out["style_kinds"] = profile["style_kinds"] + [k for k in clients.STYLE_KINDS
-                                                  if k in used and k not in profile["style_kinds"]]
+    out["style_kinds"] = profile["style_kinds"] + [
+        k for k in clients.STYLE_KINDS if k in used and k not in profile["style_kinds"]
+    ]
     return out
 
 
@@ -42,6 +47,8 @@ def list_clients():
         "types": [c["id"] for c in public_list()],
         "categories": public_list(),
         "post_types": post_type_list(),
+        "languages": language_list(),
+        "regions": regions_list(),
     }
 
 
@@ -50,6 +57,7 @@ class ClientIn(BaseModel):
     type: str = "politician"
     handle: str = ""
     post_types: Optional[List[str]] = None
+    language: str = "mr"
 
 
 @router.post("")
@@ -64,6 +72,7 @@ def create_client(body: ClientIn):
             body.handle.strip(),
             "",
             body.post_types,
+            body.language,
         )
     )
 
@@ -84,6 +93,10 @@ class ClientUpdate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     post_types: Optional[List[str]] = None
+    language: Optional[str] = None
+    second_language: Optional[str] = None
+    digit_style: Optional[str] = None
+    region: Optional[str] = None
 
 
 @router.put("/{client_id}")

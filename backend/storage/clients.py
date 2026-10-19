@@ -9,6 +9,7 @@ from sqlalchemy.exc import OperationalError
 from config import ASSETS_DIR, ROOT
 from storage.db import Asset, Client, Session, StyleExample, init_db
 from storage.categories import ALIASES, CATEGORIES, access, clean_post_types
+from storage.languages import DEFAULT_REGION, DIGIT_STYLES, LANGUAGES, REGIONS, digit_style
 
 CLIENT_TYPES = list(CATEGORIES) + list(ALIASES)
 STYLE_KINDS = ["tribute", "solemn", "greeting", "congratulate", "condolence", "event",
@@ -166,6 +167,10 @@ def profile(client_id):
         "show_ai_label": c.show_ai_label,
         "phone": c.phone or "",
         "address": c.address or "",
+        "language": c.language or "mr",
+        "second_language": c.second_language or "",
+        "digit_style": digit_style(c.language or "mr", c.digit_style or ""),
+        "region": c.region or DEFAULT_REGION.get(c.language or "mr", "MH"),
         **access({"type": c.client_type, "post_types": c.post_types}),
         "footer_image": full(banner.path) if banner else "",
         "logo": full(logo.path) if logo else "",
@@ -194,10 +199,12 @@ def profile(client_id):
 
 
 # ---------------------------------------------------------------- write
-def create_client(name, client_type="politician", handle="", client_id="", post_types=None):
+def create_client(name, client_type="politician", handle="", client_id="", post_types=None, language="mr"):
     ensure_ready()
     if client_type not in CLIENT_TYPES:
         raise ValueError(f"Type must be one of: {', '.join(CLIENT_TYPES)}")
+    if language not in LANGUAGES:
+        raise ValueError(f"Language must be one of: {', '.join(LANGUAGES)}")
     if post_types is not None and not clean_post_types(post_types):
         raise ValueError("Pick at least one post type for this client.")
     cid = make_id(client_id or handle or name)
@@ -211,6 +218,8 @@ def create_client(name, client_type="politician", handle="", client_id="", post_
                 client_type=client_type,
                 handle=handle.strip(),
                 post_types=clean_post_types(post_types),
+                language=language,
+                region=DEFAULT_REGION.get(language, "MH"),
             )
         )
         s.commit()
@@ -227,6 +236,17 @@ EDITABLE = {
     "phone": "phone",
     "address": "address",
     "post_types": "post_types",
+    "language": "language",
+    "second_language": "second_language",
+    "digit_style": "digit_style",
+    "region": "region",
+}
+
+ALLOWED = {
+    "language": set(LANGUAGES),
+    "second_language": set(LANGUAGES) | {""},
+    "digit_style": set(DIGIT_STYLES),
+    "region": set(REGIONS),
 }
 
 
@@ -240,6 +260,8 @@ def update_client(client_id, **fields):
                 if key == "type" and fields[key] not in CLIENT_TYPES:
                     raise ValueError(f"Type must be one of: {', '.join(CLIENT_TYPES)}")
                 value = fields[key]
+                if key in ALLOWED and value not in ALLOWED[key]:
+                    raise ValueError(f"{key.replace('_', ' ').capitalize()} must be one of: {', '.join(sorted(ALLOWED[key]))}")
                 if key == "post_types":
                     value = clean_post_types(value)
                     if not value:

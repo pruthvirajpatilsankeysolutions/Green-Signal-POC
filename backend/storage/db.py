@@ -64,6 +64,18 @@ class Client(Base):
     phone: Mapped[str] = mapped_column(String(40), default="")
     address: Mapped[str] = mapped_column(Text, default="")
     post_types: Mapped[list] = mapped_column(JSON, default=list)
+    language: Mapped[str] = mapped_column(
+        String(8), default="mr"
+    )  # language of the posts
+    second_language: Mapped[str] = mapped_column(
+        String(8), default=""
+    )  # optional extra line in this language
+    digit_style: Mapped[str] = mapped_column(
+        String(10), default=""
+    )  # native / latin ("" = language default)
+    region: Mapped[str] = mapped_column(
+        String(10), default="MH"
+    )  # decides regional festivals and picture style
     created_at: Mapped[str] = mapped_column(String(20), default=now_text)
 
 
@@ -111,7 +123,7 @@ class PostPlan(Base):
     __tablename__ = "post_plans"
     id: Mapped[str] = mapped_column(String(12), primary_key=True)
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), index=True)
-    festival_id: Mapped[str] = mapped_column(String(80), index=True)   
+    festival_id: Mapped[str] = mapped_column(String(80), index=True)
     status: Mapped[str] = mapped_column(String(20), default="options")
     options: Mapped[dict] = mapped_column(JSON, default=dict)
     chosen: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -125,6 +137,10 @@ NEW_COLUMNS = [
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''",
     "ALTER TABLE drafts ADD COLUMN IF NOT EXISTS design JSON",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS post_types JSON",
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS language VARCHAR(8) DEFAULT 'mr'",
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS second_language VARCHAR(8) DEFAULT ''",
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS digit_style VARCHAR(10) DEFAULT ''",
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS region VARCHAR(10) DEFAULT 'MH'",
 ]
 
 

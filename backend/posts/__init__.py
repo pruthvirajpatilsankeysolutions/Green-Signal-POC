@@ -3,19 +3,30 @@ import re
 from config import USE_MARATHI_DIGITS
 from storage.categories import category
 from storage.clients import current
+from storage.languages import prompt_block, to_local_digits
 
-_TO_MARATHI = str.maketrans("0123456789", "०१२३४५६७८९")
 
-
-def marathi_digits(text):
-    """5-1 -> ५-१ in caption text. Hashtags, @mentions and links keep English digits."""
-    if not USE_MARATHI_DIGITS:
+def local_digits(text):
+    """5-1 -> ५-१ when the client's language uses its own digits (Marathi by default; Hindi and
+    English clients usually keep 0-9). Hashtags, @mentions and links keep English digits.
+    """
+    if (
+        not USE_MARATHI_DIGITS or not text
+    ):  # USE_MARATHI_DIGITS = False switches it off for everyone
         return text
-    parts = re.split(r"(\s+)", text)
+    client = current()
+    parts = re.split(r"(\s+)", str(text))
     return "".join(
-        p if p.startswith(("#", "@", "http")) else p.translate(_TO_MARATHI)
+        (
+            p
+            if p.startswith(("#", "@", "http"))
+            else to_local_digits(p, client["language"], client["digit_style"])
+        )
         for p in parts
     )
+
+
+marathi_digits = local_digits  # old name, still used in several files
 
 
 def style_kind(post_type, tone=""):
@@ -27,8 +38,13 @@ def style_kind(post_type, tone=""):
         )
     if post_type == "reaction":
         return "condolence" if tone == "condolence" else "congratulate"
-    if post_type == "custom" and tone in ("announcement", "offer", "achievement", "spotlight"):
-        return tone                      # Create-post types have their own examples
+    if post_type == "custom" and tone in (
+        "announcement",
+        "offer",
+        "achievement",
+        "spotlight",
+    ):
+        return tone  # Create-post types have their own examples
     return "event"
 
 
@@ -47,7 +63,8 @@ def client_intro(kind="event"):
     return (
         f"You write Instagram captions for {client['name']}"
         f"{f' ({who})' if who else ''}, a {cat['label'].lower()} client.\n"
-        f"Language: Marathi, simple words people use daily. Tone: {cat['voice']}.\n"
+        + prompt_block(client["language"], client["second_language"])
+        + f"Tone: {cat['voice']}.\n"
         f"{cat['rules']}"
         "Copy the STYLE of these real past captions (structure, tone, line breaks, "
         "use of '…', closing lines). Do NOT copy their facts:\n\n"

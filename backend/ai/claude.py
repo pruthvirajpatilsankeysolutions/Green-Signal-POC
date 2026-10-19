@@ -78,32 +78,10 @@ def _parse_json(text):
     fixed = re.sub(r",\s*([}\]])", r"\1", body)  # trailing commas: {"a": 1,}  [1, 2,]
     fixed = re.sub(
         r'(^|[\s{,\[])//[^\n"]*(?=\n)', r"\1", fixed
-    )  
+    )  # // comments on their own
     fixed = re.sub(
         r"(?<=[}\]\"\d])\s*\n\s*(?=\")", ",\n", fixed
-    )  
-    return json.loads(fixed)
-
-
-def _parse_json(text):
-    """Read the AI's JSON reply, repairing the small mistakes models often make
-    (code fences, trailing commas, // comments, a missing comma between lines)."""
-    cleaned = re.sub(r"```(?:json)?", "", text).strip()
-    start, end = cleaned.find("{"), cleaned.rfind("}")
-    if start == -1 or end == -1:
-        raise ValueError("no JSON object found")
-    body = cleaned[start : end + 1]
-    try:
-        return json.loads(body)
-    except json.JSONDecodeError:
-        pass
-    fixed = re.sub(r",\s*([}\]])", r"\1", body)  # trailing commas: {"a": 1,}  [1, 2,]
-    fixed = re.sub(
-        r'(^|[\s{,\[])//[^\n"]*(?=\n)', r"\1", fixed
-    )
-    fixed = re.sub(
-        r"(?<=[}\]\"\d])\s*\n\s*(?=\")", ",\n", fixed
-    )  
+    )  # missing comma between lines
     return json.loads(fixed)
 
 

@@ -34,8 +34,13 @@ def get_festival(fid):
 
 def for_category(rows):
     """Only the occasions this client posts (from its ticked post types)."""
-    tones = clients.current()["tones"]
-    return [f for f in rows if f["tone"] in tones]
+    client = clients.current()
+    tones, region = client["tones"], client["region"]
+    return [
+        f
+        for f in rows
+        if f["tone"] in tones and (not f.get("regions") or region in f["regions"])
+    ]
 
 
 def festival_out(f):

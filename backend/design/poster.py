@@ -420,6 +420,8 @@ def render(template, data, name, sizes=("feed",)):
         html = _env.get_template(template).render(
             **data, W=width, H=height, size=size, fonts=FONTS
         )
+        # the page language picks the right letter shapes (Hindi and Marathi draw some letters differently)
+        html = html.replace('<html lang="mr">', f'<html lang="{current()["language"]}">', 1)
         html_path = html_dir / f"{name}_{size}.html"
         html_path.write_text(html, encoding="utf-8")
         out_path = out_dir / f"{name}_{size}.png"

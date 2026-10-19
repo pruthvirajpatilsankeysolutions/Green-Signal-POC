@@ -25,6 +25,8 @@ def status():
             "category": cat["label"],
             "features": client["pages"],
             "post_types": client["post_types"],
+            "language": client["language"],
+            "region": client["region"],
         },
         "categories": public_list(),
         "post_types": post_type_list(),

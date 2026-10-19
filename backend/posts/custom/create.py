@@ -13,6 +13,7 @@ from posts import COMMON_RULES, client_intro, final_hashtags, marathi_digits
 from posts.custom.types import ANNOUNCEMENT_KINDS, SPOTLIGHT_OCCASIONS, TYPES
 from storage import drafts
 from storage.clients import current
+from storage.languages import get as language
 
 HEADLINE_MAX = 40
 
@@ -80,10 +81,10 @@ def word_options(ptype, form):
     t = TYPES[ptype]
     system = (client_intro(ptype) + COMMON_RULES + TYPE_RULES[ptype] + f"""
 You write a {t['label'].lower()} post ({t['description'].lower()}).
-- headline: printed big on the poster, max {HEADLINE_MAX} letters, catchy, in Marathi.
+- headline: printed big on the poster, max {HEADLINE_MAX} letters, catchy, in {language(current()["language"])["name"]}.
 - caption: 2 to 4 short paragraphs for Instagram, using the facts below exactly. End with a clear next step
   (visit, call, apply, wish) when the facts give one.
-- hashtags: 5 to 8, Marathi ones (words joined with _) and a few English ones.
+- hashtags: 5 to 8, {language(current()["language"])["name"]} ones (words joined with _) and a few English ones.
 Write 3 clearly different versions.""")
     user = (f"Facts (use only these):\n{_facts(ptype, form)}\n\n"
             'Return JSON: {"headlines": ["...", "...", "..."], "captions": ["...", "...", "..."], "hashtags": ["#..."]}')
