@@ -14,10 +14,10 @@ import Clients from "./pages/Clients.jsx";
 import Editor from "./pages/Editor.jsx";
 import CreatePost from "./pages/CreatePost.jsx";
 
-const StatusContext = createContext({ status: null, refresh: () => {} });
+const StatusContext = createContext({ status: null, refresh: () => { } });
 export const useStatus = () => useContext(StatusContext);
 
-const APP_NAME = "Post desk";
+const APP_NAME = "Postcraft";
 
 // Navigation, grouped the way the work flows: create posts, then review them.
 const NAV = [
@@ -89,7 +89,7 @@ export default function App() {
       <div className="app">
         <aside className="sidebar">
           <div className="logo">
-            <span className="logo-mark" aria-hidden="true">पो</span>
+            <img className="logo-img" src="/logo.png" alt="" aria-hidden="true" />
             <span className="logo-name">{APP_NAME}</span>
           </div>
 
@@ -126,7 +126,7 @@ export default function App() {
                 <span className="avatar" aria-hidden="true">{client.name.slice(0, 1)}</span>
                 <span className="client-cat">{client.category}</span>
                 <select className="client-select" value={client.id} onChange={(e) => switchClient(e.target.value)}
-                        aria-label="Current client">
+                  aria-label="Current client">
                   {(status.clients || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </label>
