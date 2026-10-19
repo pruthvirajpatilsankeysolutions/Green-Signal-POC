@@ -4217,3 +4217,13 @@ tr:last-child td {
   font-weight: 800;
   font-size: 18px;
 }
+
+
+/* client language settings */
+.lang-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px 4px;
+  background: var(--surface-2);
+  margin-bottom: 4px;
+}

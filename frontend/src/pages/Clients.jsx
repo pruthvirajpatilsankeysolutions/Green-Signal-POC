@@ -19,6 +19,7 @@ export default function Clients({ onChanged, onSwitch }) {
   const [list, setList] = useState([]);
   const [categories, setCategories] = useState([]);
   const [postTypes, setPostTypes] = useState([]);
+  const [languages, setLanguages] = useState([]);
   const [selected, setSelected] = useState(getClientId());
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
@@ -27,6 +28,7 @@ export default function Clients({ onChanged, onSwitch }) {
     setList(d.clients);
     setCategories(d.categories || []);
     setPostTypes(d.post_types || []);
+    setLanguages(d.languages || []);
     if (!d.clients.find((c) => c.id === selected) && d.clients[0]) setSelected(d.clients[0].id);
   }).catch((e) => setError(e.message));
 
@@ -60,7 +62,7 @@ export default function Clients({ onChanged, onSwitch }) {
           ))}
         </ul>
 
-        {adding ? <NewClient categories={categories} postTypes={postTypes} onCreated={created} onCancel={() => setAdding(false)} />
+        {adding ? <NewClient categories={categories} postTypes={postTypes} languages={languages} onCreated={created} onCancel={() => setAdding(false)} />
           : selected ? <ClientEditor key={selected} id={selected} onSaved={() => { load(); onChanged(); }} onSwitch={onSwitch} />
           : <p className="empty">Add your first client.</p>}
       </div>
@@ -100,9 +102,9 @@ function PostTypePicker({ postTypes, value, onChange }) {
   );
 }
 
-function NewClient({ categories, postTypes, onCreated, onCancel }) {
+function NewClient({ categories, postTypes, languages, onCreated, onCancel }) {
   const suggestion = (type) => categories.find((k) => k.id === type)?.post_types || [];
-  const [form, setForm] = useState({ name: "", type: "politician", handle: "", post_types: suggestion("politician") });
+  const [form, setForm] = useState({ name: "", type: "politician", handle: "", post_types: suggestion("politician"), language: "mr" });
   useEffect(() => {                                    // fill the ticks once the categories arrive
     if (categories.length && !form.post_types.length) setForm((f) => ({ ...f, post_types: suggestion(f.type) }));
   }, [categories]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -123,10 +125,18 @@ function NewClient({ categories, postTypes, onCreated, onCancel }) {
         <span className="field-label">Name (as it should appear on posts)</span>
         <input className="mr" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
       </label>
-      <label className="field">
-        <span className="field-label">Instagram handle <span className="optional">optional</span></span>
-        <input value={form.handle} onChange={(e) => setForm({ ...form, handle: e.target.value })} placeholder="@handle" />
-      </label>
+      <div className="row-2">
+        <label className="field">
+          <span className="field-label">Instagram handle <span className="optional">optional</span></span>
+          <input value={form.handle} onChange={(e) => setForm({ ...form, handle: e.target.value })} placeholder="@handle" />
+        </label>
+        <label className="field">
+          <span className="field-label">Post language <span className="optional">captions and poster text</span></span>
+          <select className="input" value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })}>
+            {languages.map((l) => <option key={l.id} value={l.id}>{l.native} · {l.name}</option>)}
+          </select>
+        </label>
+      </div>
       <div className="field">
         <span className="field-label">Category <span className="optional">decides which posts, occasions and caption style this client gets</span></span>
         <CategoryPicker categories={categories} postTypes={postTypes} value={form.type}
@@ -162,6 +172,7 @@ function ClientEditor({ id, onSaved, onSwitch }) {
       designation_lines: c.designation_lines.join("\n"), fixed_hashtags: c.fixed_hashtags.join(" "),
       show_ai_label: c.show_ai_label, phone: c.phone || "", address: c.address || "",
       post_types: c.post_types || [],
+      language: c.language || "mr", second_language: c.second_language || "", digit_style: c.digit_style || "native", region: c.region || "MH",
     });
   };
 
@@ -221,6 +232,7 @@ function ClientEditor({ id, onSaved, onSwitch }) {
           </span>
           <PostTypePicker postTypes={client.all_post_types} value={form.post_types} onChange={(post_types) => setForm({ ...form, post_types })} />
         </div>
+        <LanguageSettings client={client} form={form} setForm={setForm} />
         <label className="field">
           <span className="field-label">Designation <span className="optional">one per line; shown if there is no banner</span></span>
           <textarea className="mr" rows={3} value={form.designation_lines} onChange={set("designation_lines")} />
@@ -311,6 +323,51 @@ function ClientEditor({ id, onSaved, onSwitch }) {
           );
         })}
       </section>
+    </div>
+  );
+}
+
+// language of the posts: captions, poster text, hashtags, digits, regional festivals
+function LanguageSettings({ client, form, setForm }) {
+  const lang = client.languages.find((l) => l.id === form.language) || client.languages[0];
+  const pickLanguage = (id) => {
+    const l = client.languages.find((x) => x.id === id);
+    setForm({ ...form, language: id, digit_style: l.default_digits, region: l.default_region,
+              second_language: form.second_language === id ? "" : form.second_language });
+  };
+  return (
+    <div className="lang-box">
+      <div className="row-2">
+        <label className="field">
+          <span className="field-label">Post language <span className="optional">captions, poster text, hashtags</span></span>
+          <select className="input" value={form.language} onChange={(e) => pickLanguage(e.target.value)}>
+            {client.languages.map((l) => <option key={l.id} value={l.id}>{l.native} · {l.name}</option>)}
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">Second language <span className="optional">adds one short line to captions</span></span>
+          <select className="input" value={form.second_language} onChange={(e) => setForm({ ...form, second_language: e.target.value })}>
+            <option value="">None</option>
+            {client.languages.filter((l) => l.id !== form.language).map((l) => <option key={l.id} value={l.id}>{l.native} · {l.name}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="row-2">
+        <label className="field">
+          <span className="field-label">Numbers</span>
+          <select className="input" value={lang.has_native_digits ? form.digit_style : "latin"} disabled={!lang.has_native_digits}
+                  onChange={(e) => setForm({ ...form, digit_style: e.target.value })}>
+            <option value="native">{lang.id === "en" ? "50%" : "५०%"} ({lang.name} digits)</option>
+            <option value="latin">50% (English digits)</option>
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">Region <span className="optional">regional festivals and picture style</span></span>
+          <select className="input" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}>
+            {client.regions.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </label>
+      </div>
     </div>
   );
 }
