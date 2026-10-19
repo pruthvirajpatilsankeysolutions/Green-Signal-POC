@@ -26,6 +26,7 @@ from config import (
     TEMPLATES_DIR,
 )
 from storage.clients import current
+from storage.languages import poster_words
 
 _env = Environment(
     loader=FileSystemLoader(TEMPLATES_DIR), autoescape=select_autoescape(["html"])
@@ -223,6 +224,8 @@ def footer_data(leader_photo=""):
         "footer_text_uri": file_uri(banner.get("text", "")),
         "footer_text_ratio": banner.get("text_ratio", 1),
         "footer_bg": banner.get("bg", "#ffffff"),
+        "footer_bg": banner.get("bg", "#ffffff"),
+        **poster_words(client["language"]),
     }
 
 
@@ -421,7 +424,9 @@ def render(template, data, name, sizes=("feed",)):
             **data, W=width, H=height, size=size, fonts=FONTS
         )
         # the page language picks the right letter shapes (Hindi and Marathi draw some letters differently)
-        html = html.replace('<html lang="mr">', f'<html lang="{current()["language"]}">', 1)
+        html = html.replace(
+            '<html lang="mr">', f'<html lang="{current()["language"]}">', 1
+        )
         html_path = html_dir / f"{name}_{size}.html"
         html_path.write_text(html, encoding="utf-8")
         out_path = out_dir / f"{name}_{size}.png"

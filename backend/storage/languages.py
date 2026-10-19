@@ -45,6 +45,21 @@ LANGUAGES = {
 
 DIGIT_STYLES = ["native", "latin"]
 
+# fixed words printed on posters by the templates
+POSTER_WORDS = {
+    "contact_label": {
+        "mr": "अधिक माहितीसाठी संपर्क",
+        "hi": "अधिक जानकारी के लिए संपर्क करें",
+        "en": "For details, call",
+    },
+}
+
+
+def poster_words(code):
+    """Fixed poster words in this language (Marathi if missing)."""
+    return {k: v.get(code) or v["mr"] for k, v in POSTER_WORDS.items()}
+
+
 REGIONS = {
     "MH": {
         "label": "Maharashtra",

@@ -18,11 +18,15 @@ const asTag = (t) => "#" + t.trim().replace(/^#+/, "").replace(/\s+/g, "_");
 export default function CreatePost() {
   const { refresh } = useStatus();
   const [types, setTypes] = useState(null);
+  const [lang, setLang] = useState({ id: "mr", name: "Marathi" });
   const [type, setType] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api.customTypes().then((d) => { setTypes(d.types); if (d.types[0]) setType(d.types[0]); }).catch((e) => setError(e.message));
+    api.customTypes().then((d) => {
+      setTypes(d.types); if (d.types[0]) setType(d.types[0]);
+      if (d.language) setLang(d.language);
+    }).catch((e) => setError(e.message));
   }, []);
 
   return (
@@ -49,12 +53,12 @@ export default function CreatePost() {
           })}
         </div>
       )}
-      {type && <TypeForm key={type.id} type={type} onCreated={refresh} />}
+      {type && <TypeForm key={type.id} type={type} lang={lang} onCreated={refresh} />}
     </div>
   );
 }
 
-function TypeForm({ type, onCreated }) {
+function TypeForm({ type, lang, onCreated }) {
   const [form, setForm] = useState(() => emptyForm(type));
   const [photo, setPhoto] = useState(null);
   const [options, setOptions] = useState(null);
@@ -101,17 +105,22 @@ function TypeForm({ type, onCreated }) {
 
   const field = (f) => {
     const label = <span className="field-label">{f.label} {!f.required && <span className="optional">optional</span>}</span>;
+    // which language to type in: printed fields go on the poster exactly as typed
+    const hint = f.kind === "select" ? <span className="cp-hint">Shown on the poster in {lang.name}.</span>
+      : f.printed ? <span className="cp-hint">Printed on the poster exactly as typed. Write it in {lang.name}.</span>
+      : <span className="cp-hint">Any language. The AI writes the post in {lang.name}.</span>;
     if (f.kind === "select") {
       return (
         <label key={f.key} className="field">{label}
           <select className="input" value={form[f.key]} onChange={(e) => set(f.key, e.target.value)}>
             {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+          {hint}
         </label>
       );
     }
     if (f.kind === "textarea") {
-      return <label key={f.key} className="field">{label}<textarea className="mr" rows={3} value={form[f.key]} placeholder={f.placeholder} onChange={(e) => set(f.key, e.target.value)} /></label>;
+      return <label key={f.key} className="field">{label}<textarea className="mr" rows={3} value={form[f.key]} placeholder={f.placeholder} onChange={(e) => set(f.key, e.target.value)} />{hint}</label>;
     }
     if (f.kind === "checkbox") {
       return (
@@ -127,16 +136,17 @@ function TypeForm({ type, onCreated }) {
         <div key={f.key} className="field">{label}
           {rows.map((r, i) => (
             <div key={i} className="cp-stat">
-              <input className="mr" value={r.value} placeholder={["₹१२ कोटी", "१२", "८ महिने"][i]} aria-label={`Number ${i + 1}`} onChange={(e) => update(i, "value", e.target.value)} />
-              <input className="mr" value={r.label} placeholder={["निधी", "रस्ते", "कालावधी"][i]} aria-label={`Label ${i + 1}`} onChange={(e) => update(i, "label", e.target.value)} />
+              <input className="mr" value={r.value} placeholder={(f.placeholder || [])[i]?.[0]} aria-label={`Number ${i + 1}`} onChange={(e) => update(i, "value", e.target.value)} />
+              <input className="mr" value={r.label} placeholder={(f.placeholder || [])[i]?.[1]} aria-label={`Label ${i + 1}`} onChange={(e) => update(i, "label", e.target.value)} />
               {rows.length > 1 && <button className="icon-btn" aria-label="Remove" onClick={() => set(f.key, rows.filter((_, j) => j !== i))}><X size={15} /></button>}
             </div>
           ))}
           {rows.length < 3 && <button className="btn small" onClick={() => set(f.key, [...rows, { value: "", label: "" }])}><Plus size={14} /> Add a number</button>}
+          {hint}
         </div>
       );
     }
-    return <label key={f.key} className="field">{label}<input className="mr" value={form[f.key]} placeholder={f.placeholder} onChange={(e) => set(f.key, e.target.value)} /></label>;
+    return <label key={f.key} className="field">{label}<input className="mr" value={form[f.key]} placeholder={f.placeholder} onChange={(e) => set(f.key, e.target.value)} />{hint}</label>;
   };
 
   const pool = options ? [...new Set([...options.hashtags, ...chosen.hashtags])] : [];

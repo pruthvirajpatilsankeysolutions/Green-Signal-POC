@@ -1,4 +1,3 @@
-
 import json
 from typing import Optional
 
@@ -10,6 +9,7 @@ from config import OUTPUT_DIR
 from posts.custom import create as custom
 from posts.custom.types import TYPES, public
 from storage import clients
+from storage.languages import get as language
 
 router = APIRouter(prefix="/api/custom", tags=["create post"])
 
@@ -27,10 +27,12 @@ def _allowed(ptype):
 
 @router.get("/types")
 def list_types():
-    mine = clients.current()["post_types"]
+    client = clients.current()
+    lang = client["language"]
     return {
-        "types": [public(t) for t in TYPES if t in mine],
-        "all": [public(t) for t in TYPES],
+        "types": [public(t, lang) for t in TYPES if t in client["post_types"]],
+        "all": [public(t, lang) for t in TYPES],
+        "language": {"id": lang, "name": language(lang)["name"]},
     }
 
 

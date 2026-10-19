@@ -1,43 +1,217 @@
 <!doctype html>
 <html lang="mr">
-<head>
-{% set story = (size == 'story') %}
-{% include "_custom_base.html" %}
-{% set split = photo_uri and photo_shape != 'landscape' and not story %}
-<style>
-  .stage { position: relative; display: flex; min-height: 0; }
-  .stage .photo { flex: 1; }
-  .stage .nophoto { flex: 1; border-radius: 28px; background: linear-gradient(135deg, {{ accent }}22, {{ accent }}55); }
-  .burst { position: absolute; right: -18px; top: -22px; width: {{ 300 if story else 250 }}px; height: {{ 300 if story else 250 }}px;
-           display: flex; align-items: center; justify-content: center; text-align: center; padding: 44px; color: #fff;
-           background: #D92D20; z-index: 4; box-shadow: 0 10px 26px rgba(0,0,0,.25);
-           clip-path: polygon(50% 0, 61% 12%, 77% 6%, 80% 22%, 96% 26%, 91% 42%, 100% 55%, 88% 66%, 92% 82%, 76% 84%, 68% 99%, 54% 90%,
-                              40% 100%, 31% 86%, 15% 88%, 13% 72%, 0 62%, 8% 48%, 0 34%, 15% 27%, 16% 11%, 33% 12%); }
-  .burst div { width: 100%; font: 800 {{ 58 if story else 50 }}px/1.1 "Baloo 2", "Mukta"; }
-  .side { display: flex; flex-direction: column; gap: {{ 22 if story else 16 }}px; }
-  .kicker { font-size: {{ 50 if story else 42 }}px; color: {{ accent }}; line-height: 1.3; }
-  .product { font-size: {{ 84 if story else 70 }}px; line-height: 1.15; }
-  .row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .price { font: 800 {{ 64 if story else 56 }}px/1 "Baloo 2", "Mukta"; color: #2B1A0E; background: #FFE8A3;
-           border-radius: 16px; padding: 14px 24px 8px; }
-  .valid { font: 600 {{ 32 if story else 28 }}px/1.25 "Mukta"; color: #7A2E12; }
-  .note { font: 600 {{ 32 if story else 27 }}px/1.3 "Mukta"; color: #3B2414; }
 
-  /* portrait or square photo: photo on the left at full height, words on the right */
-  .content.split { flex-direction: row; gap: 40px; }
-  .content.split > .stage { flex: 0 0 47%; min-height: 0; }
-  .content.split > .side { flex: 1 1 0; min-width: 0; justify-content: center; }
-  .content.split .burst { width: 210px; height: 210px; padding: 36px; right: -60px; top: -16px; }
-  .content.split .burst div { font-size: 42px; }
-  .content.split .product { font-size: 76px; }
-</style>
+<head>
+  {% set story = (size == 'story') %}
+  {% include "_custom_base.html" %}
+  {% set split = photo_uri and photo_shape != 'landscape' and not story %}
+  <style>
+    .stage {
+      position: relative;
+      display: flex;
+      min-height: 0;
+    }
+
+    .stage .photo {
+      flex: 1;
+    }
+
+    .stage .nophoto {
+      flex: 1;
+      border-radius: 28px;
+
+      background: linear-gradient(135deg, {
+          {
+          accent
+        }
+      }
+
+      22, {
+        {
+        accent
+      }
+    }
+
+    55);
+    }
+
+    .burst {
+      position: absolute;
+      right: -18px;
+      top: -22px;
+
+      width: {
+          {
+          300 if story else 250
+        }
+      }
+
+      px;
+
+      height: {
+          {
+          300 if story else 250
+        }
+      }
+
+      px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 44px;
+      color: #fff;
+      background: #D92D20;
+      z-index: 4;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, .25);
+      clip-path: polygon(50% 0, 61% 12%, 77% 6%, 80% 22%, 96% 26%, 91% 42%, 100% 55%, 88% 66%, 92% 82%, 76% 84%, 68% 99%, 54% 90%,
+        40% 100%, 31% 86%, 15% 88%, 13% 72%, 0 62%, 8% 48%, 0 34%, 15% 27%, 16% 11%, 33% 12%);
+    }
+
+    .burst div {
+      width: 100%;
+
+      font: 800 {
+          {
+          58 if story else 50
+        }
+      }
+
+      px/1.1 "Baloo 2",
+      "Mukta";
+    }
+
+    .side {
+      display: flex;
+      flex-direction: column;
+
+      gap: {
+          {
+          22 if story else 16
+        }
+      }
+
+      px;
+    }
+
+    .kicker {
+      font-size: {
+          {
+          50 if story else 42
+        }
+      }
+
+      px;
+
+      color: {
+          {
+          accent
+        }
+      }
+
+      ;
+      line-height: 1.3;
+    }
+
+    .product {
+      font-size: {
+          {
+          84 if story else 70
+        }
+      }
+
+      px;
+      line-height: 1.15;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .price {
+      font: 800 {
+          {
+          64 if story else 56
+        }
+      }
+
+      px/1 "Baloo 2",
+      "Mukta";
+      color: #2B1A0E;
+      background: #FFE8A3;
+      border-radius: 16px;
+      padding: 14px 24px 8px;
+    }
+
+    .valid {
+      font: 600 {
+          {
+          32 if story else 28
+        }
+      }
+
+      px/1.25 "Mukta";
+      color: #7A2E12;
+    }
+
+    .note {
+      font: 600 {
+          {
+          32 if story else 27
+        }
+      }
+
+      px/1.3 "Mukta";
+      color: #3B2414;
+    }
+
+    /* portrait or square photo: photo on the left at full height, words on the right */
+    .content.split {
+      flex-direction: row;
+      gap: 40px;
+    }
+
+    .content.split>.stage {
+      flex: 0 0 47%;
+      min-height: 0;
+    }
+
+    .content.split>.side {
+      flex: 1 1 0;
+      min-width: 0;
+      justify-content: center;
+    }
+
+    .content.split .burst {
+      width: 210px;
+      height: 210px;
+      padding: 36px;
+      right: -60px;
+      top: -16px;
+    }
+
+    .content.split .burst div {
+      font-size: 42px;
+    }
+
+    .content.split .product {
+      font-size: 76px;
+    }
+  </style>
 </head>
+
 <body>
   <div class="deco"></div>
   <div class="content{% if split %} split{% endif %}">
     <div class="stage">
-      {% if photo_uri %}<div class="photo"><img src="{{ photo_uri }}"></div>{% else %}<div class="nophoto"></div>{% endif %}
-      <div class="burst fit-box"><div class="shrink fit-w" data-min="22">{{ f.offer }}</div></div>
+      {% if photo_uri %}<div class="photo"><img src="{{ photo_uri }}"></div>{% else %}<div class="nophoto"></div>{%
+      endif %}
+      <div class="burst fit-box">
+        <div class="shrink fit-w" data-min="22">{{ f.offer }}</div>
+      </div>
     </div>
     <div class="side fit-box">
       <div class="kicker calli shrink" data-min="24">{{ headline }}</div>
@@ -45,14 +219,17 @@
       {% if f.price or f.valid_till %}
       <div class="row">
         {% if f.price %}<span class="price shrink" data-min="30">{{ f.price }}</span>{% endif %}
-        {% if f.valid_till %}<span class="valid shrink" data-min="20">ऑफर {{ f.valid_till }}पर्यंत</span>{% endif %}
-      </div>
+        {% if f.valid_till %}<span class="valid shrink" data-min="20">{{ valid_text }}</span>{% endif %} </div>
       {% endif %}
       {% for line in f.note_lines %}<div class="note shrink" data-min="20">{{ line }}</div>{% endfor %}
-      {% if phone %}<div class="phone"><i><svg width="24" height="24" viewBox="0 0 24 24" fill="{{ accent }}"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z"/></svg></i>{{ phone }}</div>{% endif %}
+      {% if phone %}<div class="phone"><i><svg width="24" height="24" viewBox="0 0 24 24" fill="{{ accent }}">
+            <path
+              d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z" />
+          </svg></i>{{ phone }}</div>{% endif %}
     </div>
   </div>
   {% include "_footer.html" %}
   {% include "_fit.html" %}
 </body>
+
 </html>
