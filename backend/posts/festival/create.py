@@ -49,8 +49,19 @@ def write_caption(festival):
     also the poster lines (returned as a dict, else {})."""
     result = ask_json(*caption_prompt(festival))
     poster = result.get("poster") if festival.get("needs_text") else None
-    poster = {k: marathi_digits(str((poster or {}).get(k, "")).strip()) for k in ("line_small", "line_big", "line_end")} if poster else {}
-    return marathi_digits(result["caption"].strip()), final_hashtags(result.get("hashtags")), poster
+    poster = (
+        {
+            k: marathi_digits(str((poster or {}).get(k, "")).strip())
+            for k in ("line_small", "line_big", "line_end")
+        }
+        if poster
+        else {}
+    )
+    return (
+        marathi_digits(result["caption"].strip()),
+        final_hashtags(result.get("hashtags")),
+        poster,
+    )
 
 
 def make_post(festival, background_path, ai_generated, layout="text_right", plan=None):
@@ -77,17 +88,22 @@ def make_post(festival, background_path, ai_generated, layout="text_right", plan
     else:
         caption, hashtags, poster = write_caption(festival)
         festival = {**festival, **{k: v for k, v in poster.items() if v}}
-    if festival.get("needs_text") and not (festival["line_small"] and festival["line_big"] and festival["line_end"]):
+    if festival.get("needs_text") and not (
+        festival["line_small"] and festival["line_big"] and festival["line_end"]
+    ):
         # planned words without a full poster text (e.g. month plan: title only): fill the missing lines
         _, _, poster = write_caption(festival)
-        festival = {**festival, **{k: v for k, v in poster.items() if v and not festival[k]}}
+        festival = {
+            **festival,
+            **{k: v for k, v in poster.items() if v and not festival[k]},
+        }
     tone = festival["tone"]
 
     if tone in TRIBUTE_TONES:
         template, layout = "tribute.html", "text_left"
 
     elif current()["type"] != "politician":
-        template, layout = "business.html", "business"
+        template = "business.html"
 
     elif layout == "text_center":
         template = "festival_center.html"

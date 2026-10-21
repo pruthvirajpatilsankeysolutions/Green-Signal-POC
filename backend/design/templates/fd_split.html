@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="mr">
+<head>
+{% set story = (size == 'story') %}
+{% set img_footer = (footer_img_uri | default('')) != '' or (footer_text_uri | default('')) != '' %}
+{% set footer_h = (((250 if story else 205) if img_footer else 230) if banner else 0) %}
+{% set avail = H - footer_h %}
+{% set show_leader = false %}
+{% include "_fd_base.html" %}
+<style>
+  body { background: #2B0B06; }
+  .half { position: absolute; z-index: 1; left: 0; top: 0; width: 50%; height: {{ avail }}px; overflow: hidden; }
+  .half img { width: 100%; height: 100%; object-fit: cover; display: block;
+         object-position: {{ focus_x | default(50) }}% {{ focus_y | default(50) }}%; }
+  .panel { position: absolute; z-index: 1; left: 50%; right: 0; top: 0; height: {{ avail }}px;
+           background: linear-gradient(160deg, {{ accent }} 0%, #5A1206 100%); }
+  .edge { position: absolute; z-index: 2; left: calc(50% - 4px); top: 0; width: 8px; height: {{ avail }}px; background: #F2C46D; }
+  .grp { left: 53%; right: 3%; top: {{ (avail * 0.08) | int }}px; height: {{ (avail * 0.84) | int }}px; }
+  .fs, .fe { color: #FFF1D2; }
+</style>
+</head>
+<body>
+  <div class="half"><img src="{{ bg_uri }}"></div>
+  <div class="panel"></div><div class="edge"></div>
+  <div class="grp fit-box">{% include "_fd_words.html" %}</div>
+  {% include "_fd_end.html" %}
+</body>
+</html>

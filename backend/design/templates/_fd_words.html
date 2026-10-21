@@ -1,0 +1,5 @@
+{# the three poster lines, shared by every gallery design #}
+{% if line_small %}<div class="fs shrink" data-min="22">{% for part in line_small.split('|') %}{{ part }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
+<div class="fb title-art {{ title_style | default('title-gold') }} fit" data-min="44">{{ line_big }}</div>
+<div class="ornament" style="--orn: {{ orn | default('#E8B44C') }}"><span></span></div>
+{% if line_end %}<div class="fe calli shrink" data-min="24">{% for part in line_end.split('|') %}{{ part }}{% if not loop.last %} {% endif %}{% endfor %}</div>{% endif %}

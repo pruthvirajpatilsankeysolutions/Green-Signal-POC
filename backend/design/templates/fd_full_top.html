@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="mr">
+<head>
+{% set story = (size == 'story') %}
+{% set img_footer = (footer_img_uri | default('')) != '' or (footer_text_uri | default('')) != '' %}
+{% set footer_h = (((250 if story else 205) if img_footer else 230) if banner else 0) %}
+{% set avail = H - footer_h %}
+{% set show_leader = false %}
+{% include "_fd_base.html" %}
+<style>
+  .bg { background: url("{{ bg_uri }}") center / cover no-repeat; }
+  .shade { background: linear-gradient(180deg, rgba(20,6,2,.78) 0%, rgba(20,6,2,.45) 26%, rgba(20,6,2,0) 46%); }
+  .grp { left: 7%; right: 7%; top: {{ (avail * 0.05) | int }}px; height: {{ (avail * 0.33) | int }}px; }
+  .fs, .fe { color: #FFF1D2; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+</style>
+</head>
+<body>
+  <div class="layer bg"></div><div class="layer shade"></div>
+  <div class="grp fit-box">{% include "_fd_words.html" %}</div>
+  {% include "_fd_end.html" %}
+</body>
+</html>

@@ -1,0 +1,6 @@
+{# footer banner, or a small logo chip when the banner is off #}
+{% if banner %}{% include "_footer.html" %}{% else %}
+<div class="chip"><span class="ic">{% if logo_uri %}<img src="{{ logo_uri }}">{% else %}{{ initial }}{% endif %}</span><span class="nm">{{ client.name }}</span></div>
+{% if label %}<div class="ai-label">{{ label }}</div>{% endif %}
+{% endif %}
+{% include "_fit.html" %}

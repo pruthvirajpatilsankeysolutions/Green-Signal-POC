@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="mr">
+<head>
+{% set story = (size == 'story') %}
+{% set img_footer = (footer_img_uri | default('')) != '' or (footer_text_uri | default('')) != '' %}
+{% set footer_h = (((250 if story else 205) if img_footer else 230) if banner else 0) %}
+{% set avail = H - footer_h %}
+{% set show_leader = false %}
+{% include "_fd_base.html" %}
+{% set title_style = 'title-saffron' %}
+<style>
+  body { background: radial-gradient(ellipse at 30% 30%, #FFF8EC 0%, #FBEBD2 60%, #F3D9B5 100%); }
+  .frame { position: absolute; z-index: 2; right: 5%; top: {{ (avail * 0.06) | int }}px; width: 43%; height: {{ (avail * 0.86) | int }}px;
+           border-radius: 999px 999px 18px 18px; overflow: hidden; background: #EFE0C8;
+           box-shadow: 0 0 0 8px #fff, 0 0 0 12px {{ accent }}, 0 24px 50px rgba(80,40,10,.3); }
+  .frame img { width: 100%; height: 100%; object-fit: cover; display: block;
+         object-position: {{ focus_x | default(50) }}% {{ focus_y | default(50) }}%; }
+  .grp { left: 4%; width: 44%; top: {{ (avail * 0.08) | int }}px; height: {{ (avail * 0.82) | int }}px; }
+  .fs, .fe { color: #5A1E0E; }
+</style>
+</head>
+<body>
+  <div class="frame"><img src="{{ bg_uri }}"></div>
+  <div class="grp fit-box">{% include "_fd_words.html" %}</div>
+  {% include "_fd_end.html" %}
+</body>
+</html>

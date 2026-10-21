@@ -65,7 +65,7 @@ TYPES = {
                 "options": ANNOUNCEMENT_KINDS,
             },
             {
-                "key": "topicmake_post",
+                "key": "topic",
                 "label": "What is it about?",
                 "kind": "text",
                 "required": True,

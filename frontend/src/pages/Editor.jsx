@@ -6,6 +6,7 @@ import {
   Layers, Lock, Maximize, Minus, Palette, Plus, Redo2, Save, Shapes, Trash2, Type, Undo2, Unlock, Upload, Wallpaper,
 } from "lucide-react";
 import { api } from "../api.js";
+import { useStatus } from "../App.jsx";
 import Notice from "../components/Notice.jsx";
 import { BADGES, GRAPHICS } from "../editor/graphics.js";
 import { LINES, OVERLAYS, SHAPES, makeBadge } from "../editor/shapes.js";
@@ -14,21 +15,77 @@ import { LINES, OVERLAYS, SHAPES, makeBadge } from "../editor/shapes.js";
 FabricObject.ownDefaults.originX = "left";
 FabricObject.ownDefaults.originY = "top";
 
+// The background always fills the whole board and can't be selected, moved or resized (like Canva).
+// It is changed only from the Background tab. Also repairs designs saved with a moved background.
+const pinBackground = (c) => {
+  const bg = c.getObjects().find((o) => o.isBackground);
+  if (!bg) return;
+  const width = c.getWidth() / c.getZoom(), height = c.getHeight() / c.getZoom();
+  const cover = Math.max(width / bg.width, height / bg.height);
+  bg.set({
+    originX: "left", originY: "top", angle: 0, skewX: 0, skewY: 0, flipX: false, flipY: false,
+    scaleX: cover, scaleY: cover, left: (width - bg.width * cover) / 2, top: (height - bg.height * cover) / 2,
+    selectable: false, evented: false, hasControls: false, hoverCursor: "default",
+    lockMovementX: true, lockMovementY: true, lockScalingX: true, lockScalingY: true, lockRotation: true,
+  });
+  bg.setCoords();
+  c.sendObjectToBack(bg);
+};
+
+// Is the board light or dark where a new text will go? Picks dark text on light areas and
+// white text with a shadow on dark areas (like Canva). Falls back to dark text if unsure.
+const isLightArea = (c, left, top, width, height) => {
+  try {
+    const z = c.getZoom();
+    const src = c.toCanvasElement(1);
+    const x = Math.max(0, Math.round(left * z)), y = Math.max(0, Math.round(top * z));
+    const w = Math.max(1, Math.min(src.width - x, Math.round(width * z))), h = Math.max(1, Math.min(src.height - y, Math.round(height * z)));
+    const d = src.getContext("2d").getImageData(x, y, w, h).data;
+    let sum = 0, n = 0;
+    for (let i = 0; i < d.length; i += 16) { sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; n++; }
+    return sum / n > 150;
+  } catch {
+    return true;
+  }
+};
+
+// Saved designs keep image addresses without the server part (http://localhost:5173), so they
+// still open after the app moves to another address. Also repairs designs saved before this fix.
+const portableSources = (json) => {
+  const fix = (o) => {
+    if (o?.src && /^https?:\/\/[^/]+\/(files|api)\//.test(o.src)) o.src = o.src.replace(/^https?:\/\/[^/]+/, "");
+    (o?.objects || []).forEach(fix);
+    if (o?.clipPath) fix(o.clipPath);
+  };
+  (json?.objects || []).forEach(fix);
+  if (json?.backgroundImage) fix(json.backgroundImage);
+  return json;
+};
+
 const EXTRA = ["name", "isBackground", "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls"];
 const EMOJIS = ["🪔", "🎉", "🎊", "✨", "🌸", "🌼", "🌺", "🏵️", "🌻", "🌷", "💐", "🌹", "🙏", "👏", "🤝", "💪",
   "❤️", "🧡", "💛", "💚", "💙", "💜", "⭐", "🌟", "🔥", "🎁", "🍬", "🍭", "🍰", "🎂", "🧁", "🍫",
   "🥳", "🎈", "🎀", "🪷", "🕉️", "🚩", "🇮🇳", "🏏", "🏆", "🥇", "📢", "📍", "📞", "✅", "☀️", "🌙"];
 const COLORS = ["#FFFFFF", "#111111", "#FFC94A", "#F2A007", "#F26B0F", "#C8261B", "#7A1F12", "#E91E63", "#4B2A7B", "#175CD3", "#0E7C5A", "#6B7280"];
 const BG_COLORS = ["#FFFFFF", "#FFF4DC", "#FBEBD8", "#FDE2E4", "#E8F5EF", "#E0ECFF", "#1F2347", "#111111", "#7A1F12", "#0E7C5A"];
-const TEXT_PRESETS = [
-  { label: "Add a heading", text: "मुख्य शीर्षक", font: "Baloo 2", weight: "800", size: 110, cls: "p-heading" },
-  { label: "Add a subheading", text: "उपशीर्षक", font: "Mukta", weight: "800", size: 64, cls: "p-sub" },
-  { label: "Add a little body text", text: "येथे मजकूर लिहा", font: "Mukta", weight: "400", size: 40, cls: "p-body" },
+// sample texts in the client's post language (Marathi / Hindi / English)
+const SAMPLES = {
+  mr: { box: "नवीन मजकूर", heading: "मुख्य शीर्षक", sub: "उपशीर्षक", body: "येथे मजकूर लिहा",
+        combos: ["हार्दिक शुभेच्छा!", "विनम्र अभिवादन!", "मानाचा मुजरा!"], name: "Marathi" },
+  hi: { box: "नया टेक्स्ट", heading: "मुख्य शीर्षक", sub: "उपशीर्षक", body: "यहाँ टेक्स्ट लिखें",
+        combos: ["हार्दिक शुभकामनाएं!", "विनम्र श्रद्धांजलि!", "शत-शत नमन!"], name: "Hindi" },
+  en: { box: "New text", heading: "Your heading", sub: "Subheading", body: "Write your text here",
+        combos: ["Warm wishes!", "Humble tributes", "Thank you!"], name: "English" },
+};
+const presetsFor = (s) => [
+  { label: "Add a heading", text: s.heading, font: "Baloo 2", weight: "800", size: 110, cls: "p-heading" },
+  { label: "Add a subheading", text: s.sub, font: "Mukta", weight: "800", size: 64, cls: "p-sub" },
+  { label: "Add a little body text", text: s.body, font: "Mukta", weight: "400", size: 40, cls: "p-body" },
 ];
-const COMBOS = [
-  { label: "हार्दिक शुभेच्छा!", font: "Kalam", weight: "700", size: 72, fill: "#FFFFFF" },
-  { label: "विनम्र अभिवादन!", font: "Rozha One", weight: "400", size: 80, fill: "#7A1F12" },
-  { label: "मानाचा मुजरा!", font: "Baloo 2", weight: "800", size: 90, fill: "#F26B0F" },
+const combosFor = (s) => [
+  { label: s.combos[0], font: "Kalam", weight: "700", size: 72, fill: "#FFFFFF" },
+  { label: s.combos[1], font: "Rozha One", weight: "400", size: 80, fill: "#7A1F12" },
+  { label: s.combos[2], font: "Baloo 2", weight: "800", size: 90, fill: "#F26B0F" },
 ];
 const TABS = [
   { id: "text", label: "Text", icon: Type },
@@ -72,6 +129,8 @@ const isBold = (w) => ["700", "800", "bold"].includes(String(w));
 export default function Editor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { status } = useStatus();
+  const sample = SAMPLES[status?.client?.language] || SAMPLES.mr;
   const holder = useRef(null);
   const canvasRef = useRef(null);
   const history = useRef({ stack: [], index: -1, paused: false });
@@ -112,6 +171,7 @@ export default function Editor() {
     if (!c || next < 0 || next >= h.stack.length) return;
     h.paused = true;
     await c.loadFromJSON(JSON.parse(h.stack[next]));
+    pinBackground(c);
     h.index = next;
     h.paused = false;
     c.requestRenderAll();
@@ -161,7 +221,7 @@ export default function Editor() {
         canvasRef.current = c;
         history.current.paused = true;
         if (data.saved) {
-          await c.loadFromJSON(data.saved);
+          await c.loadFromJSON(portableSources(data.saved));
         } else {
           const st = data.starter;
           if (st.background) {
@@ -191,6 +251,7 @@ export default function Editor() {
             }
           }
         }
+        pinBackground(c);
         c.requestRenderAll();
         history.current.paused = false;
         snapshot();
@@ -253,13 +314,17 @@ export default function Editor() {
   const W = () => info.size.width;
   const place = (obj) => { c().add(obj); c().setActiveObject(obj); c().requestRenderAll(); setSelected(obj); snapshot(); };
   const added = useRef(0);
-  const nextTop = (base) => base + ((added.current++ % 5) - 2) * 50;     // new items step down so they don't overlap
+  const nextTop = (base) => base + ((added.current++ % 5) - 2) * 120;    // new items step down so they don't overlap
 
-  const addText = ({ text, font, weight, size, fill = "#FFFFFF", name = "Text" }) => {
+  const addText = ({ text, font, weight, size, fill, name = "Text" }) => {
     const width = Math.min(900, Math.max(300, text.length * size * 0.55));
+    const left = (W() - width) / 2, top = nextTop(420);
+    // no colour given (or plain white): pick what is readable on the poster at that spot
+    const light = (!fill || fill.toUpperCase() === "#FFFFFF") && isLightArea(c(), left, top, width, size * 1.3);
+    const colour = !fill || fill.toUpperCase() === "#FFFFFF" ? (light ? "#1F2347" : "#FFFFFF") : fill;
     place(new Textbox(text, {
-      name, left: (W() - width) / 2, top: nextTop(420), width, fontSize: size, fontFamily: font,
-      fontWeight: weight, fill, textAlign: "center", shadow: shadow()
+      name, left, top, width, fontSize: size, fontFamily: font,
+      fontWeight: weight, fill: colour, textAlign: "center", shadow: colour === "#FFFFFF" ? shadow() : null
     }));
   };
 
@@ -322,7 +387,7 @@ export default function Editor() {
     });
     const old = c().getObjects().find((o) => o.isBackground);
     if (old) c().remove(old);
-    c().add(bg); c().sendObjectToBack(bg); c().requestRenderAll(); snapshot();
+    c().add(bg); pinBackground(c()); c().requestRenderAll(); snapshot();
   };
 
   const setBackgroundColor = (color) => {
@@ -377,7 +442,7 @@ export default function Editor() {
     if (!c()) return;
     setBusy("save"); setError("");
     try {
-      await api.saveDesign(id, c().toObject(EXTRA), exportPng());
+      await api.saveDesign(id, portableSources(c().toObject(EXTRA)), exportPng());
       setSaved(true);
     } catch (e) { setError(e.message); } finally { setBusy(""); }
   };
@@ -399,22 +464,22 @@ export default function Editor() {
   const panel = {
     text: (
       <>
-        <button className="ed-primary" onClick={() => addText({ text: "नवीन मजकूर", font: "Mukta", weight: "800", size: 64 })}>
+        <button className="ed-primary" onClick={() => addText({ text: sample.box, font: "Mukta", weight: "800", size: 64 })}>
           <Type size={18} /> Add a text box
         </button>
         <div className="ed-section">Default text styles</div>
-        {TEXT_PRESETS.map((p) => (
+        {presetsFor(sample).map((p) => (
           <button key={p.label} className={`ed-preset ${p.cls}`} style={{ fontFamily: p.font, fontWeight: p.weight }}
             onClick={() => addText({ text: p.text, font: p.font, weight: p.weight, size: p.size })}>{p.label}</button>
         ))}
-        <div className="ed-section">Marathi combinations</div>
+        <div className="ed-section">{sample.name} combinations</div>
         <div className="ed-combos">
-          {COMBOS.map((p) => (
+          {combosFor(sample).map((p) => (
             <button key={p.label} className="ed-combo" style={{ fontFamily: p.font, fontWeight: p.weight, color: p.fill === "#FFFFFF" ? "#7A1F12" : p.fill }}
               onClick={() => addText({ text: p.label, font: p.font, weight: p.weight, size: p.size, fill: p.fill })}>{p.label}</button>
           ))}
         </div>
-        {[["marathi", "Marathi fonts", "नमस्कार"], ["english", "English only", "Hello"]].map(([group, title, sample]) => (
+        {[["marathi", "Marathi / Hindi fonts", "नमस्कार"], ["english", "English only", "Hello"]].map(([group, title, sample]) => (
           <div key={group} className="ed-fontgroup">
             <div className="ed-section">{title}</div>
             {fontsIn(group).map((f) => (

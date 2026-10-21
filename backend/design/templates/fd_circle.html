@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="mr">
+<head>
+{% set story = (size == 'story') %}
+{% set img_footer = (footer_img_uri | default('')) != '' or (footer_text_uri | default('')) != '' %}
+{% set footer_h = (((250 if story else 205) if img_footer else 230) if banner else 0) %}
+{% set avail = H - footer_h %}
+{% set show_leader = false %}
+{% include "_fd_base.html" %}
+{% set d = ((W * 0.50) | int) if not story else ((W * 0.66) | int) %}
+<style>
+  body { background: radial-gradient(ellipse at 50% 30%, #7A1622 0%, #4A0A14 60%, #2B050B 100%); }
+  .ring { position: absolute; z-index: 2; left: {{ ((W - d) / 2) | int }}px; top: {{ (avail * 0.06) | int }}px;
+          width: {{ d }}px; height: {{ d }}px; border-radius: 50%; overflow: hidden;
+          box-shadow: 0 0 0 10px #F2C46D, 0 0 0 18px rgba(242,196,109,.25), 0 30px 60px rgba(0,0,0,.45); }
+  .ring img { width: 100%; height: 100%; object-fit: cover; display: block;
+         object-position: {{ focus_x | default(50) }}% {{ focus_y | default(50) }}%; }
+  .grp { left: 7%; right: 7%; top: {{ (avail * 0.06 + d + 40) | int }}px; bottom: {{ (H - avail + avail * 0.04) | int }}px; }
+  .fs, .fe { color: #FBE7C3; }
+</style>
+</head>
+<body>
+  <div class="ring"><img src="{{ bg_uri }}"></div>
+  <div class="grp fit-box">{% include "_fd_words.html" %}</div>
+  {% include "_fd_end.html" %}
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="mr">
+<head>
+{% set story = (size == 'story') %}
+{% set img_footer = (footer_img_uri | default('')) != '' or (footer_text_uri | default('')) != '' %}
+{% set footer_h = (((250 if story else 205) if img_footer else 230) if banner else 0) %}
+{% set avail = H - footer_h %}
+{% set show_leader = false %}
+{% include "_fd_base.html" %}
+{% set title_style = 'title-saffron' %}
+{% set ph = (avail * (0.58 if story else 0.55)) | int %}
+<style>
+  body { background: linear-gradient(180deg, #FFF8EC 0%, #FCE9CF 100%); }
+  .card { position: absolute; z-index: 2; left: 6%; right: 6%; top: {{ (avail * 0.05) | int }}px; height: {{ ph }}px;
+          border-radius: 28px; overflow: hidden; box-shadow: 0 20px 44px rgba(90,40,10,.25); border: 8px solid #fff; }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block;
+         object-position: {{ focus_x | default(50) }}% {{ focus_y | default(50) }}%; }
+  .grp { left: 6%; right: 6%; top: {{ (avail * 0.05 + ph + 24) | int }}px; bottom: {{ (H - avail + avail * 0.03) | int }}px; }
+  .fs, .fe { color: #5A1E0E; }
+</style>
+</head>
+<body>
+  <div class="card"><img src="{{ bg_uri }}"></div>
+  <div class="grp fit-box">{% include "_fd_words.html" %}</div>
+  {% include "_fd_end.html" %}
+</body>
+</html>

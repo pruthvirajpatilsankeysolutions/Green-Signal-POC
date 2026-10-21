@@ -1,334 +1,93 @@
 <!doctype html>
 <html lang="mr">
-
 <head>
-  {% set story = (size == 'story') %}
-  {% include "_base.html" %}
-  {% set phone = client.phone | default('') %}
-  {% set address = client.address | default('') %}
-  {% set bar_h = (84 if story else 66) %}
-  <style>
-    /* brand post, like a shop's own Instagram post:
+{% set story = (size == 'story') %}
+{% include "_base.html" %}
+{% set phone = client.phone | default('') %}
+{% set address = client.address | default('') %}
+{% set bar_h = (84 if story else 66) %}
+{# text right / text left: title and wishes in a column on that side; centre / corners: title at the top #}
+{% set side = 'right' if layout == 'text_right' else ('left' if layout == 'text_left' else '') %}
+<style>
+  /* brand post, like a shop's own Instagram post:
      logo top-left, headline over the picture, phone pill and address strip at the bottom */
-    body {
-      background: #140904;
-    }
+  body { background: #140904; }
+  .bg { background: url("{{ bg_uri }}") center / cover no-repeat; }
+  /* dark at the top (headline) and bottom (contact), clear in the middle (the product) */
+  .shade { background:
+      {% if side %}linear-gradient({{ '270deg' if side == 'right' else '90deg' }}, rgba(14,6,2,.88) 0%, rgba(14,6,2,.70) 34%, rgba(14,6,2,0) 62%),
+      linear-gradient(180deg, rgba(14,6,2,.55) 0%, rgba(14,6,2,0) 22%),
+      {% else %}linear-gradient(180deg, rgba(14,6,2,.90) 0%, rgba(14,6,2,.62) 24%, rgba(14,6,2,0) 44%),
+      {% endif %}linear-gradient(0deg, rgba(14,6,2,.92) 0%, rgba(14,6,2,.55) 16%, rgba(14,6,2,0) 32%); }
 
-    .bg {
-      background: url("{{ bg_uri }}") center / cover no-repeat;
-    }
+  .brand-logo { position: absolute; z-index: 5; top: {{ 34 if story else 26 }}px; left: {{ 34 if story else 26 }}px;
+                height: {{ 150 if story else 118 }}px; width: auto; max-width: 300px; object-fit: contain;
+                filter: drop-shadow(0 4px 12px rgba(0,0,0,.45)); }
+  .brand-name { position: absolute; z-index: 5; top: 30px; left: 30px; font: 800 34px "Mukta"; color: #fff;
+                background: {{ accent }}; padding: 6px 18px; border-radius: 999px; }
 
-    /* dark at the top (headline) and bottom (contact), clear in the middle (the product) */
-    .shade {
-      background:
-        linear-gradient(180deg, rgba(14, 6, 2, .90) 0%, rgba(14, 6, 2, .62) 24%, rgba(14, 6, 2, 0) 44%),
-        linear-gradient(0deg, rgba(14, 6, 2, .92) 0%, rgba(14, 6, 2, .55) 16%, rgba(14, 6, 2, 0) 32%);
-    }
+  .head { position: absolute; z-index: 3; left: 22%; right: 6%; top: {{ 7 if story else 5 }}%;
+          height: {{ 20 if story else 25 }}%; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; text-align: center; }
+  .kicker { font: 700 {{ 44 if story else 38 }}px/1.25 "Mukta"; color: #FFFFFF; letter-spacing: .02em; }
+  .headline { width: 100%; font-size: {{ 116 if story else 98 }}px; line-height: 1.15; }
+  .head .ornament { width: 52%; margin: 4px auto 0; }
 
-    .brand-logo {
-      position: absolute;
-      z-index: 5;
 
-      top: {
-          {
-          34 if story else 26
-        }
-      }
+  .wish { position: absolute; z-index: 3; left: 8%; right: 8%;
+          bottom: {{ bar_h + (190 if story else 120) }}px; height: {{ 110 if story else 90 }}px;
+          display: flex; align-items: flex-end; justify-content: center; text-align: center; }
+  .wish div { font-size: {{ 60 if story else 50 }}px; color: #FFF1D2; text-shadow: 0 3px 14px rgba(0,0,0,.7); }
 
-      px;
+  .contact { position: absolute; z-index: 4; left: 50%; transform: translateX(-50%);
+             bottom: {{ bar_h + (40 if story else 22) }}px; display: flex; align-items: center; gap: 14px;
+             background: #FFFFFF; border-radius: 999px; padding: 8px 28px 8px 26px; white-space: nowrap;
+             box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+  .contact .label { font: 700 {{ 26 if story else 22 }}px "Mukta"; color: #1d1d1d; letter-spacing: .03em; }
+  .contact .icon { width: 40px; height: 40px; border-radius: 50%; background: {{ accent }};
+                   display: grid; place-items: center; flex: none; }
+  .contact .num { font: 800 {{ 40 if story else 34 }}px "Mukta"; color: #111; letter-spacing: .03em; }
 
-      left: {
-          {
-          34 if story else 26
-        }
-      }
-
-      px;
-
-      height: {
-          {
-          150 if story else 118
-        }
-      }
-
-      px;
-      width: auto;
-      max-width: 300px;
-      object-fit: contain;
-      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .45));
-    }
-
-    .brand-name {
-      position: absolute;
-      z-index: 5;
-      top: 30px;
-      left: 30px;
-      font: 800 34px "Mukta";
-      color: #fff;
-
-      background: {
-          {
-          accent
-        }
-      }
-
-      ;
-      padding: 6px 18px;
-      border-radius: 999px;
-    }
-
-    .head {
-      position: absolute;
-      z-index: 3;
-      left: 22%;
-      right: 6%;
-
-      top: {
-          {
-          7 if story else 5
-        }
-      }
-
-      %;
-
-      height: {
-          {
-          20 if story else 25
-        }
-      }
-
-      %;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-    }
-
-    .kicker {
-      font: 700 {
-          {
-          44 if story else 38
-        }
-      }
-
-      px/1.25 "Mukta";
-      color: #FFFFFF;
-      letter-spacing: .02em;
-    }
-
-    .headline {
-      width: 100%;
-
-      font-size: {
-          {
-          116 if story else 98
-        }
-      }
-
-      px;
-      line-height: 1.15;
-    }
-
-    .head .ornament {
-      width: 52%;
-      margin: 4px auto 0;
-    }
-
-    .wish {
-      position: absolute;
-      z-index: 3;
-      left: 8%;
-      right: 8%;
-
-      bottom: {
-          {
-          bar_h+(190 if story else 120)
-        }
-      }
-
-      px;
-
-      height: {
-          {
-          110 if story else 90
-        }
-      }
-
-      px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      text-align: center;
-    }
-
-    .wish div {
-      font-size: {
-          {
-          60 if story else 50
-        }
-      }
-
-      px;
-      color: #FFF1D2;
-      text-shadow: 0 3px 14px rgba(0, 0, 0, .7);
-    }
-
-    .contact {
-      position: absolute;
-      z-index: 4;
-      left: 50%;
-      transform: translateX(-50%);
-
-      bottom: {
-          {
-          bar_h+(40 if story else 22)
-        }
-      }
-
-      px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      background: #FFFFFF;
-      border-radius: 999px;
-      padding: 8px 28px 8px 26px;
-      white-space: nowrap;
-      box-shadow: 0 8px 22px rgba(0, 0, 0, .4);
-    }
-
-    .contact .label {
-      font: 700 {
-          {
-          26 if story else 22
-        }
-      }
-
-      px "Mukta";
-      color: #1d1d1d;
-      letter-spacing: .03em;
-    }
-
-    .contact .icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-
-      background: {
-          {
-          accent
-        }
-      }
-
-      ;
-      display: grid;
-      place-items: center;
-      flex: none;
-    }
-
-    .contact .num {
-      font: 800 {
-          {
-          40 if story else 34
-        }
-      }
-
-      px "Mukta";
-      color: #111;
-      letter-spacing: .03em;
-    }
-
-    .address {
-      position: absolute;
-      z-index: 4;
-      left: 0;
-      right: 0;
-      bottom: 0;
-
-      height: {
-          {
-          bar_h
-        }
-      }
-
-      px;
-
-      background: {
-          {
-          accent
-        }
-      }
-
-      ;
-      color: #FFFFFF;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 0 28px;
-    }
-
-    .address .text {
-      font: 600 {
-          {
-          26 if story else 23
-        }
-      }
-
-      px/1.2 "Mukta";
-      white-space: nowrap;
-      overflow: hidden;
-    }
-
-    .address .handle {
-      font: 600 {
-          {
-          22 if story else 19
-        }
-      }
-
-      px "Mukta";
-      opacity: .9;
-      margin-left: 10px;
-      white-space: nowrap;
-    }
-  </style>
+  .address { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; height: {{ bar_h }}px;
+             background: {{ accent }}; color: #FFFFFF; display: flex; align-items: center; justify-content: center;
+             gap: 12px; padding: 0 28px; }
+  .address .text { font: 600 {{ 26 if story else 23 }}px/1.2 "Mukta"; white-space: nowrap; overflow: hidden; }
+  .address .handle { font: 600 {{ 22 if story else 19 }}px "Mukta"; opacity: .9; margin-left: 10px; white-space: nowrap; }
+  /* text right / text left: a column on that side, title and wishes together */
+  {% if side %}
+  .head { {{ 'left: 50%; right: 5%;' if side == 'right' else 'left: 5%; right: 50%;' }}
+          top: {{ 24 if story else 20 }}%; height: {{ 22 if story else 30 }}%; }
+  .wish { {{ 'left: 50%; right: 5%;' if side == 'right' else 'left: 5%; right: 50%;' }}
+          bottom: auto; top: {{ 47 if story else 52 }}%; height: {{ 120 if story else 110 }}px; align-items: flex-start; }
+  .headline { font-size: {{ 104 if story else 88 }}px; }
+  .wish div { width: 100%; white-space: normal; line-height: 1.25; font-size: {{ 52 if story else 44 }}px; }
+  {% endif %}
+</style>
 </head>
-
 <body>
   <div class="layer bg"></div>
   <div class="layer shade"></div>
 
-  {% if logo_uri %}<img class="brand-logo" src="{{ logo_uri }}">{% else %}<div class="brand-name">{{ client.name }}
-  </div>{% endif %}
+  {% if logo_uri %}<img class="brand-logo" src="{{ logo_uri }}">{% else %}<div class="brand-name">{{ client.name }}</div>{% endif %}
 
   <div class="head fit-box">
-    {% if line_small %}<div class="kicker shrink">{% for part in line_small.split('|') %}{{ part }}{% if not loop.last
-      %}<br>{% endif %}{% endfor %}</div>{% endif %}
+    {% if line_small %}<div class="kicker shrink">{% for part in line_small.split('|') %}{{ part }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
     <div class="headline fit title-art title-gold" data-min="54">{{ line_big }}</div>
     <div class="ornament"><span></span></div>
   </div>
 
-  <div class="wish fit-box">
-    <div class="shrink calli">{{ line_end | replace("|", " ") }}</div>
-  </div>
+  <div class="wish fit-box"><div class="shrink calli">{{ line_end | replace("|", " ") }}</div></div>
 
   {% if phone %}
   <div class="contact">
-    <span class="label">{{ contact_label }}</span> <span class="icon"><svg width="22" height="22" viewBox="0 0 24 24"
-        fill="#fff">
-        <path
-          d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z" />
-      </svg></span>
+    <span class="label">{{ contact_label }}</span>
+    <span class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z"/></svg></span>
     <span class="num">{{ phone }}</span>
   </div>
   {% endif %}
 
   <div class="address">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" style="flex:none">
-      <path
-        d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" />
-    </svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" style="flex:none"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>
     <span class="text">{{ address or client.name }}</span>
     {% if client.handle %}<span class="handle">{{ client.handle }}</span>{% endif %}
   </div>
@@ -336,5 +95,4 @@
   {% if label %}<div class="ai-label">{{ label }}</div>{% endif %}
   {% include "_fit.html" %}
 </body>
-
 </html>

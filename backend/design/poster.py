@@ -224,7 +224,6 @@ def footer_data(leader_photo=""):
         "footer_text_uri": file_uri(banner.get("text", "")),
         "footer_text_ratio": banner.get("text_ratio", 1),
         "footer_bg": banner.get("bg", "#ffffff"),
-        "footer_bg": banner.get("bg", "#ffffff"),
         **poster_words(client["language"]),
     }
 
