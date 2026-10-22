@@ -13,13 +13,6 @@
      logo top-left, headline over the picture, phone pill and address strip at the bottom */
   body { background: #140904; }
   .bg { background: url("{{ bg_uri }}") center / cover no-repeat; }
-  /* dark at the top (headline) and bottom (contact), clear in the middle (the product) */
-  .shade { background:
-      {% if side %}linear-gradient({{ '270deg' if side == 'right' else '90deg' }}, rgba(14,6,2,.88) 0%, rgba(14,6,2,.70) 34%, rgba(14,6,2,0) 62%),
-      linear-gradient(180deg, rgba(14,6,2,.55) 0%, rgba(14,6,2,0) 22%),
-      {% else %}linear-gradient(180deg, rgba(14,6,2,.90) 0%, rgba(14,6,2,.62) 24%, rgba(14,6,2,0) 44%),
-      {% endif %}linear-gradient(0deg, rgba(14,6,2,.92) 0%, rgba(14,6,2,.55) 16%, rgba(14,6,2,0) 32%); }
-
   .brand-logo { position: absolute; z-index: 5; top: {{ 34 if story else 26 }}px; left: {{ 34 if story else 26 }}px;
                 height: {{ 150 if story else 118 }}px; width: auto; max-width: 300px; object-fit: contain;
                 filter: drop-shadow(0 4px 12px rgba(0,0,0,.45)); }
@@ -66,7 +59,6 @@
 </head>
 <body>
   <div class="layer bg"></div>
-  <div class="layer shade"></div>
 
   {% if logo_uri %}<img class="brand-logo" src="{{ logo_uri }}">{% else %}<div class="brand-name">{{ client.name }}</div>{% endif %}
 
