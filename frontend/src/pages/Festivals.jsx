@@ -12,6 +12,7 @@ import MonthPlanTable from "../components/MonthPlanTable.jsx";
 import Notice from "../components/Notice.jsx";
 import PlanPanel from "../components/PlanPanel.jsx";
 import Segmented from "../components/Segmented.jsx";
+import TemplatePicker from "../components/TemplatePicker.jsx";
 
 const LAYOUTS = [
   { value: "text_right", label: "Text right" },
@@ -448,8 +449,11 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
     await loadBackgrounds();
   });
 
+  const [templateId, setTemplateId] = useState("");
+  const [templateInfo, setTemplateInfo] = useState(null);
+  const needsPicture = !templateId || templateInfo?.slots?.includes("photo");
   const onCreate = () => act("create", async () => {
-    const d = await api.createFestivalPost(fest.id, { background: chosen.path, layout, ai_generated: aiLabel, use_plan: true });
+    const d = await api.createFestivalPost(fest.id, { background: chosen?.path || "", layout, ai_generated: aiLabel, use_plan: true, template_id: templateId });
     setDraft(d);
     setPlanKey((k) => k + 1);                       // the plan was used; the next post starts fresh
     onCreated();
@@ -520,10 +524,12 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
       </label>
 
       <div className="step-title"><span>3</span> Create</div>
+      <TemplatePicker occasion={fest.id} postType="festival" value={templateId} onChange={(id, t) => { setTemplateId(id); setTemplateInfo(t || null); }} />
+      {templateId && !needsPicture && <p className="hint">This template has its own picture, so no background is needed.</p>}
       {plan && plan.status !== "approved" && <p className="hint">The words aren't approved yet. You can still create the poster with the current picks.</p>}
       <Notice kind="error">{error}</Notice>
       <div className="actions end">
-        <button className="btn primary" onClick={onCreate} disabled={!chosen || !!busy}>
+        <button className="btn primary" onClick={onCreate} disabled={(needsPicture && !chosen) || !!busy}>
           {busy === "create" ? "Making the poster…" : "Create poster"}
         </button>
       </div>

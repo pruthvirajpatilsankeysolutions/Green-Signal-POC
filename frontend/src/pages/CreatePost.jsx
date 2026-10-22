@@ -5,6 +5,7 @@ import { useStatus } from "../App.jsx";
 import CreatedNotice from "../components/CreatedNotice.jsx";
 import FeedPreview from "../components/FeedPreview.jsx";
 import Notice from "../components/Notice.jsx";
+import TemplatePicker from "../components/TemplatePicker.jsx";
 
 const ICONS = { announcement: Megaphone, offer: Tag, achievement: Award, spotlight: UserRound };
 const PHOTO_NOTE = { required: "required", recommended: "recommended", optional: "optional" };
@@ -83,12 +84,14 @@ function TypeForm({ type, lang, onCreated }) {
     setChosen({ headline: o.headlines[0].text, caption: o.captions[0], hashtags: o.hashtags.slice(0, 8), picked: { headline: 0, caption: 0 } });
   });
 
+  const [templateId, setTemplateId] = useState("");
   const create = () => act("create", async () => {
     if (type.photo === "required" && !photo) throw new Error("Please add a photo for this post.");
     const data = new FormData();
     data.append("form", JSON.stringify(form));
     data.append("chosen", JSON.stringify(chosen));
     if (photo) data.append("photo", photo);
+    if (templateId) data.append("template_id", templateId);
     setDraft(await api.createCustomPost(type.id, data));
     onCreated();
   });
@@ -217,6 +220,7 @@ function TypeForm({ type, lang, onCreated }) {
                 <button className="btn small" onClick={addTags} disabled={!newTag.trim()}><Plus size={14} /> Add</button>
               </div>
             </section>
+            <TemplatePicker postType={type.id} value={templateId} onChange={(id) => setTemplateId(id)} />
             <Notice kind="error">{error}</Notice>
             <div className="actions end">
               <button className="btn primary" onClick={create} disabled={!!busy || !chosen.headline.trim() || !chosen.caption.trim()}>

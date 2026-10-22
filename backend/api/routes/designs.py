@@ -25,6 +25,12 @@ router = APIRouter(prefix="/api/drafts", tags=["designs"])
 # Fonts the editor offers. "marathi" fonts were tested to join Marathi letters correctly
 # (many Devanagari fonts break them); "english" fonts have no Marathi letters.
 # "core" fonts load when the editor opens; the rest load in the background.
+def all_fonts():
+    """Built-in fonts plus fonts added from the Templates page."""
+    from storage import fonts as added_fonts
+    return FONTS + added_fonts.added()
+
+
 FONTS = [
     # --- Marathi (tested) ---
     {"family": "Mukta", "file": "Mukta-Regular.ttf", "weight": "400", "group": "marathi", "core": True},
@@ -163,11 +169,12 @@ def get_design(draft_id: str):
     saved = run(drafts.get_design, draft_id)
     client = clients.current()
     brand = [{"name": a["kind"].title(), "url": to_url(a["path"])} for a in client["assets"]]
-    fonts = [{**f, "url": f"/files/assets/fonts/{f['file']}"} for f in FONTS
+    fonts = [{**f, "url": f"/files/assets/fonts/{f['file']}"} for f in all_fonts()
              if (ASSETS_DIR / "fonts" / f["file"]).exists()]          # skip fonts not downloaded yet
     return {"draft": draft_out(draft), "saved": saved.get("feed"),
             "starter": None if saved.get("feed") else (measured_layout(draft) or starter_layout(draft)),
-            "brand_assets": brand, "fonts": fonts, "size": {"width": SIZES["feed"][0], "height": SIZES["feed"][1]}}
+            "brand_assets": brand, "fonts": fonts,
+            "size": (saved.get("feed") or {}).get("size") or {"width": SIZES["feed"][0], "height": SIZES["feed"][1]}}
 
 
 class DesignIn(BaseModel):

@@ -52,6 +52,7 @@ def create_post(
     form: str = Form(...),
     chosen: str = Form(...),
     photo: Optional[UploadFile] = File(None),
+    template_id: str = Form(""),
 ):
     _allowed(ptype)
     try:
@@ -63,4 +64,4 @@ def create_post(
         if photo and photo.filename
         else ""
     )
-    return draft_out(run(custom.make_post, ptype, form_data, chosen_data, photo_path))
+    return draft_out(run(custom.make_post, ptype, form_data, chosen_data, photo_path, template_id))

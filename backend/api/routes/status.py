@@ -27,6 +27,7 @@ def status():
             "post_types": client["post_types"],
             "language": client["language"],
             "region": client["region"],
+            "accent_color": client.get("accent_color", ""),
         },
         "categories": public_list(),
         "post_types": post_type_list(),

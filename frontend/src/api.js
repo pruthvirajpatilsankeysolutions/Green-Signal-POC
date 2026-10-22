@@ -8,6 +8,7 @@ import { reactionsApi } from "./api/reactions.js";
 import { statusApi } from "./api/status.js";
 import { designsApi } from "./api/designs.js";
 import { customApi } from "./api/custom.js";
+import { templatesApi } from "./api/templates.js";
 export { getClientId, setClientId } from "./api/request.js";
 
 export const api = {
@@ -19,4 +20,5 @@ export const api = {
   ...draftsApi,
   ...designsApi,
   ...customApi,
+  ...templatesApi,
 };

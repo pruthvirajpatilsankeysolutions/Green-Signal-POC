@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Canvas, FabricImage, FabricObject, Gradient, Shadow, Textbox, loadSVGFromString, util } from "fabric";
+import { Canvas, FabricImage, FabricObject, Gradient, Rect, Shadow, Textbox, loadSVGFromString, util } from "fabric";
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, Bold, ChevronLeft, Copy, Download, Image as ImageIcon,
-  Layers, Lock, Maximize, Minus, Palette, Plus, Redo2, Save, Shapes, Trash2, Type, Undo2, Unlock, Upload, Wallpaper,
+  Layers, Lock, Magnet, Maximize, Minus, Palette, Plus, Redo2, Save, Shapes, Trash2, Type, Undo2, Unlock, Upload, Wallpaper,
 } from "lucide-react";
 import { api } from "../api.js";
 import { useStatus } from "../App.jsx";
 import Notice from "../components/Notice.jsx";
+import SaveTemplateDialog from "../components/SaveTemplateDialog.jsx";
+import ColorPanel, { DIRECTIONS, normHex } from "../components/ColorPanel.jsx";
 import { BADGES, GRAPHICS } from "../editor/graphics.js";
 import { LINES, OVERLAYS, SHAPES, makeBadge } from "../editor/shapes.js";
+
 
 // Fabric.js 7 measures positions from an object's centre by default; this app uses the top-left corner.
 FabricObject.ownDefaults.originX = "left";
@@ -62,7 +65,9 @@ const portableSources = (json) => {
   return json;
 };
 
-const EXTRA = ["name", "isBackground", "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls"];
+// saved with every design; "slot" (and its fitting rules) marks what the app fills in a template
+const EXTRA = ["name", "isBackground", "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls",
+  "slot", "minSize", "maxLines", "sourceFont"];
 const EMOJIS = ["🪔", "🎉", "🎊", "✨", "🌸", "🌼", "🌺", "🏵️", "🌻", "🌷", "💐", "🌹", "🙏", "👏", "🤝", "💪",
   "❤️", "🧡", "💛", "💚", "💙", "💜", "⭐", "🌟", "🔥", "🎁", "🍬", "🍭", "🍰", "🎂", "🧁", "🍫",
   "🥳", "🎈", "🎀", "🪷", "🕉️", "🚩", "🇮🇳", "🏏", "🏆", "🥇", "📢", "📍", "📞", "✅", "☀️", "🌙"];
@@ -70,12 +75,18 @@ const COLORS = ["#FFFFFF", "#111111", "#FFC94A", "#F2A007", "#F26B0F", "#C8261B"
 const BG_COLORS = ["#FFFFFF", "#FFF4DC", "#FBEBD8", "#FDE2E4", "#E8F5EF", "#E0ECFF", "#1F2347", "#111111", "#7A1F12", "#0E7C5A"];
 // sample texts in the client's post language (Marathi / Hindi / English)
 const SAMPLES = {
-  mr: { box: "नवीन मजकूर", heading: "मुख्य शीर्षक", sub: "उपशीर्षक", body: "येथे मजकूर लिहा",
-        combos: ["हार्दिक शुभेच्छा!", "विनम्र अभिवादन!", "मानाचा मुजरा!"], name: "Marathi" },
-  hi: { box: "नया टेक्स्ट", heading: "मुख्य शीर्षक", sub: "उपशीर्षक", body: "यहाँ टेक्स्ट लिखें",
-        combos: ["हार्दिक शुभकामनाएं!", "विनम्र श्रद्धांजलि!", "शत-शत नमन!"], name: "Hindi" },
-  en: { box: "New text", heading: "Your heading", sub: "Subheading", body: "Write your text here",
-        combos: ["Warm wishes!", "Humble tributes", "Thank you!"], name: "English" },
+  mr: {
+    box: "नवीन मजकूर", heading: "मुख्य शीर्षक", sub: "उपशीर्षक", body: "येथे मजकूर लिहा",
+    combos: ["हार्दिक शुभेच्छा!", "विनम्र अभिवादन!", "मानाचा मुजरा!"], name: "Marathi"
+  },
+  hi: {
+    box: "नया टेक्स्ट", heading: "मुख्य शीर्षक", sub: "उपशीर्षक", body: "यहाँ टेक्स्ट लिखें",
+    combos: ["हार्दिक शुभकामनाएं!", "विनम्र श्रद्धांजलि!", "शत-शत नमन!"], name: "Hindi"
+  },
+  en: {
+    box: "New text", heading: "Your heading", sub: "Subheading", body: "Write your text here",
+    combos: ["Warm wishes!", "Humble tributes", "Thank you!"], name: "English"
+  },
 };
 const presetsFor = (s) => [
   { label: "Add a heading", text: s.heading, font: "Baloo 2", weight: "800", size: 110, cls: "p-heading" },
@@ -126,8 +137,102 @@ function measuredText(item) {
 
 const isBold = (w) => ["700", "800", "bold"].includes(String(w));
 
+
+// ---------------------------------------------------------------- alignment guides (like Canva)
+// While an element is dragged, its edges and centre snap to the page centre / edges and to other
+// elements' edges and centres; pink dashed lines show what it lines up with. Hold Alt to move freely.
+const SNAP_PX = 6;                                     // snap distance on screen, at any zoom
+function addAlignmentGuides(c, size, enabled) {
+  let lines = [];
+  const box = (o) => {
+    const pts = o.getCoords();                         // corners in page units
+    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    const l = Math.min(...xs), r = Math.max(...xs), t = Math.min(...ys), b = Math.max(...ys);
+    return { l, r, t, b, cx: (l + r) / 2, cy: (t + b) / 2 };
+  };
+  c.on("object:moving", (e) => {
+    lines = [];
+    const obj = e.target;
+    if (!enabled.current || e.e?.altKey) return;
+    const tol = SNAP_PX / c.getZoom();
+    const moving = new Set([obj, ...(obj.getObjects?.() || [])]);
+    const others = c.getObjects().filter((o) => !moving.has(o) && !o.isBackground && o.visible !== false).map(box);
+    const page = { l: 0, r: size.width, t: 0, b: size.height, cx: size.width / 2, cy: size.height / 2, page: true };
+    const me = box(obj);
+    // best match on one axis: [page or element, which edge of mine, which edge of theirs]
+    const best = (keysMine, keysTheirs) => {
+      let found = null;
+      for (const target of [page, ...others]) {
+        for (const km of keysMine) for (const kt of keysTheirs) {
+          const d = target[kt] - me[km];
+          if (Math.abs(d) <= tol && (!found || Math.abs(d) < Math.abs(found.d))) found = { d, at: target[kt], target };
+        }
+      }
+      return found;
+    };
+    const vx = best(["l", "cx", "r"], ["l", "cx", "r"]);
+    const hy = best(["t", "cy", "b"], ["t", "cy", "b"]);
+    if (vx) obj.set({ left: obj.left + vx.d });
+    if (hy) obj.set({ top: obj.top + hy.d });
+    if (vx || hy) obj.setCoords();
+    const now = box(obj);
+    // vertical line: full page height for the page, otherwise from one element to the other
+    if (vx) lines.push(vx.target.page ? { x: vx.at, y1: 0, y2: size.height }
+      : { x: vx.at, y1: Math.min(now.t, vx.target.t) - 20, y2: Math.max(now.b, vx.target.b) + 20 });
+    if (hy) lines.push(hy.target.page ? { y: hy.at, x1: 0, x2: size.width }
+      : { y: hy.at, x1: Math.min(now.l, hy.target.l) - 20, x2: Math.max(now.r, hy.target.r) + 20 });
+  });
+  const clear = () => { if (lines.length) { lines = []; c.requestRenderAll(); } };
+  c.on("mouse:up", clear);
+  c.on("selection:cleared", clear);
+  c.on("after:render", () => {
+    const ctx = c.contextTop;
+    if (!ctx) return;
+    c.clearContext(ctx);
+    if (!lines.length) return;
+    const v = c.viewportTransform, r = c.getRetinaScaling(), z = c.getZoom();
+    ctx.save();
+    ctx.setTransform(v[0] * r, 0, 0, v[3] * r, v[4] * r, v[5] * r);
+    ctx.strokeStyle = "#FF2D95";
+    ctx.lineWidth = 1 / z;
+    ctx.setLineDash([5 / z, 4 / z]);
+    ctx.beginPath();
+    for (const ln of lines) {
+      if (ln.x !== undefined) { ctx.moveTo(ln.x, ln.y1); ctx.lineTo(ln.x, ln.y2); }
+      else { ctx.moveTo(ln.x1, ln.y); ctx.lineTo(ln.x2, ln.y); }
+    }
+    ctx.stroke();
+    ctx.restore();
+    c.contextTopDirty = true;                          // Fabric clears these lines on its next render
+  });
+}
+
+
+// colour panel value ("#hex" or {type: "gradient", stops, dir}) <-> Fabric fill
+const toFabricFill = (v) => (v && typeof v === "object"
+  ? new Gradient({
+    type: "linear", gradientUnits: "percentage", coords: DIRECTIONS[v.dir]?.coords || DIRECTIONS.down.coords,
+    colorStops: [{ offset: 0, color: v.stops[0] }, { offset: 1, color: v.stops[1] }]
+  })
+  : v);
+const fromFabricFill = (f) => {
+  if (f && typeof f === "object" && f.colorStops?.length) {
+    const stops = [...f.colorStops].sort((a, b) => a.offset - b.offset);
+    const c = f.coords || {};
+    const dir = Object.entries(DIRECTIONS).find(([, d]) => ["x1", "y1", "x2", "y2"].every((k) => Math.abs((c[k] ?? 0) - d.coords[k]) < 0.01))?.[0] || "down";
+    return { type: "gradient", stops: [normHex(stops[0].color) || "#FFFFFF", normHex(stops[stops.length - 1].color) || "#FFFFFF"], dir };
+  }
+  return normHex(f) || "#FFFFFF";
+};
+
 export default function Editor() {
-  const { id } = useParams();
+  const { id, tid } = useParams();
+  const templateMode = !!tid;                              // editing a template (Templates page), not a post
+  const [missingFonts, setMissingFonts] = useState([]);
+  const [saveDialog, setSaveDialog] = useState(false);     // template mode: Save opens the options dialog
+  const [colorTarget, setColorTarget] = useState(null);    // "fill" | "stroke" | "background": the open colour panel
+  const guidesOn = useRef(true);                           // alignment guides (bottom bar toggle)
+  const [guides, setGuides] = useState(true);
   const navigate = useNavigate();
   const { status } = useStatus();
   const sample = SAMPLES[status?.client?.language] || SAMPLES.mr;
@@ -204,7 +309,8 @@ export default function Editor() {
     holder.current.appendChild(el);
     (async () => {
       try {
-        const data = await api.design(id);
+        const data = templateMode ? await api.templateDesign(tid) : await api.design(id);
+        setMissingFonts(data.template?.missing_fonts || []);
         // register every font; load the core ones now, plus any font the saved design uses
         faces.current = data.fonts.map((f) => {
           const face = new FontFace(f.family, `url(${f.url})`, { weight: f.weight });
@@ -262,6 +368,7 @@ export default function Editor() {
         c.on("object:modified", snapshot);
         c.on("text:changed", refresh);
         c.on("text:editing:exited", snapshot);
+        addAlignmentGuides(c, { width, height }, guidesOn);
         setInfo(data);
         // the other fonts download quietly in the background
         faces.current.filter((f) => f.face.status === "unloaded").forEach((f) => f.face.load().then(refresh).catch(() => null));
@@ -275,7 +382,7 @@ export default function Editor() {
       canvasRef.current = null;
       if (holder.current) holder.current.innerHTML = "";
     };
-  }, [id, snapshot]);
+  }, [id, tid, snapshot]);
 
   useEffect(() => { if (info) fitZoom(); }, [info]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -402,6 +509,50 @@ export default function Editor() {
     c().remove(obj); c().discardActiveObject(); c().requestRenderAll(); setSelected(null); snapshot();
   };
 
+  // ---------------------------------------------------------------- colour panel
+  const docColors = () => {
+    const out = new Set();
+    const add = (v) => { if (typeof v === "string") { const h = normHex(v); if (h) out.add(h); } else if (v?.colorStops) v.colorStops.forEach((st) => add(st.color)); };
+    add(c()?.backgroundColor);
+    const walk = (o) => { add(o.fill); add(o.stroke); (o._objects || []).forEach(walk); };
+    (c()?.getObjects() || []).forEach(walk);
+    return [...out].slice(0, 14);
+  };
+  const brandColors = [...new Set([status?.client?.accent_color, ...COLORS].map(normHex).filter(Boolean))].slice(0, 12);
+
+  const backgroundValue = () => {
+    const bg = c()?.getObjects().find((o) => o.isBackground);
+    if (bg && bg.type === "rect") return fromFabricFill(bg.fill);
+    return normHex(c()?.backgroundColor) || "#FFFFFF";
+  };
+  const applyBackground = (value, final) => {
+    const old = c().getObjects().find((o) => o.isBackground);
+    if (typeof value === "string") {                            // plain colour: the canvas colour, no background layer
+      if (old) c().remove(old);
+      c().backgroundColor = value;
+    } else if (old && old.type === "rect") {
+      old.set("fill", toFabricFill(value));
+    } else {                                                    // gradient: a locked full-page layer at the back
+      if (old) c().remove(old);
+      const rect = new Rect({ name: "Background", isBackground: true, left: 0, top: 0, width: info.size.width, height: info.size.height, fill: toFabricFill(value) });
+      c().add(rect); pinBackground(c());
+    }
+    c().requestRenderAll();
+    if (final) snapshot();
+  };
+  const applyColor = (value, final) => {
+    if (colorTarget === "background") { applyBackground(value, final); return; }
+    const obj = c()?.getActiveObject(); if (!obj) return;
+    obj.set(colorTarget, colorTarget === "stroke" && typeof value === "object" ? value.stops[0] : toFabricFill(value));
+    obj.dirty = true; c().requestRenderAll();
+    if (final) snapshot(); else refresh();
+  };
+  const colorValue = colorTarget === "background" ? backgroundValue() : selected ? fromFabricFill(selected[colorTarget]) : "#FFFFFF";
+
+  // close the panel when its object is no longer selected
+  useEffect(() => { if (colorTarget && colorTarget !== "background" && !selected) setColorTarget(null); }, [selected, colorTarget]);
+
+
   const duplicate = async () => {
     const obj = c()?.getActiveObject();
     if (!obj) return;
@@ -438,18 +589,24 @@ export default function Editor() {
     return c().toDataURL({ format: "png", multiplier: 1 / c().getZoom() });
   };
 
-  const save = async () => {
+  const save = async (options) => {
     if (!c()) return;
+    if (templateMode && !options) { setSaveDialog(true); return; }   // ask for the template's options first
     setBusy("save"); setError("");
     try {
-      await api.saveDesign(id, portableSources(c().toObject(EXTRA)), exportPng());
+      const design = { ...portableSources(c().toObject(EXTRA)), size: info.size };
+      if (templateMode) {
+        const t = await api.saveTemplateDesign(tid, design, exportPng(), options);
+        setInfo((i) => ({ ...i, draft: { ...i.draft, title: t.name }, template: { ...i.template, ...options, name: t.name } }));
+        setSaveDialog(false);
+      } else await api.saveDesign(id, design, exportPng());
       setSaved(true);
     } catch (e) { setError(e.message); } finally { setBusy(""); }
   };
 
   const download = () => {
     const a = document.createElement("a");
-    a.href = exportPng(); a.download = `post-${id}.png`; a.click();
+    a.href = exportPng(); a.download = templateMode ? `template-${tid}.png` : `post-${id}.png`; a.click();
   };
 
   // ---------------------------------------------------------------- render helpers
@@ -581,6 +738,10 @@ export default function Editor() {
         <div className="ed-section">Plain colour</div>
         <div className="ed-swatches">
           {BG_COLORS.map((col) => <button key={col} style={{ background: col }} aria-label={col} onClick={() => setBackgroundColor(col)} />)}
+
+          <button className="ed-primary ed-custom-colour" onClick={() => { c()?.discardActiveObject(); c()?.requestRenderAll(); setSelected(null); setColorTarget("background"); }}>
+            <Palette size={18} /> Custom colour or gradient
+          </button>
         </div>
         <p className="ed-hint">A plain colour removes the background photo.</p>
       </>
@@ -603,16 +764,17 @@ export default function Editor() {
     <div className="ed">
       {/* ---------------- top bar ---------------- */}
       <header className="ed-top">
-        <button className="ed-top-btn" onClick={() => navigate("/approvals")} title="Back to Approvals"><ArrowLeft size={18} /> Back</button>
+        <button className="ed-top-btn" onClick={() => navigate(templateMode ? "/templates" : "/approvals")}
+          title={templateMode ? "Back to Templates" : "Back to Approvals"}><ArrowLeft size={18} /> Back</button>
         <div className="ed-top-group">
           <button className="ed-top-icon" title="Undo (Ctrl+Z)" onClick={() => restore(-1)} disabled={h.index <= 0}><Undo2 size={18} /></button>
           <button className="ed-top-icon" title="Redo (Ctrl+Y)" onClick={() => restore(1)} disabled={h.index >= h.stack.length - 1}><Redo2 size={18} /></button>
           <span className="ed-status">{busy === "save" ? "Saving…" : saved ? "Saved" : ""}</span>
         </div>
-        <div className="ed-title mr">{info?.draft?.title || "Loading…"}</div>
+        <div className="ed-title mr">{info ? (templateMode ? `Template: ${info.draft.title}` : info.draft.title) : "Loading…"}</div>
         <div className="ed-top-group">
           <button className="ed-top-btn" onClick={download} disabled={!info}><Download size={18} /> Download</button>
-          <button className="ed-top-save" onClick={save} disabled={!info || busy === "save"}><Save size={18} /> Save design</button>
+          <button className="ed-top-save" onClick={() => save()} disabled={!info || busy === "save"}><Save size={18} /> {templateMode ? "Save template" : "Save design"}</button>
         </div>
       </header>
 
@@ -639,21 +801,34 @@ export default function Editor() {
           <div className="ed-context">
             {selected ? (
               <>
+                {templateMode && info?.slots && (isText || selected.type === "image") && (
+                  <label className="ed-fill" title="What the app puts here when it makes a post from this template">
+                    Fill with
+                    <select value={selected.slot || ""} onChange={(e) => { setProp("slot", e.target.value || undefined); setSelected(c().getActiveObject()); }}>
+                      <option value="">{isText ? "Keep this text" : "Keep this picture"}</option>
+                      {info.slots.filter((sl) => sl.kind === (isText ? "text" : "image")).map((sl) => <option key={sl.id} value={sl.id}>{sl.label}</option>)}
+                    </select>
+                  </label>
+                )}
+                {templateMode && (isText || selected.type === "image") && <span className="ed-sep" />}
                 {isText && (
                   <>
                     <select className="ed-select" value={selected.fontFamily} onChange={(e) => setFont(e.target.value)} aria-label="Font">
                       <optgroup label="Marathi">{fontsIn("marathi").map((f) => <option key={f} value={f}>{f}</option>)}</optgroup>
                       <optgroup label="English only">{fontsIn("english").map((f) => <option key={f} value={f}>{f}</option>)}</optgroup>
+                      {fontsIn("added").length > 0 && <optgroup label="Added fonts">{fontsIn("added").map((f) => <option key={f} value={f}>{f}</option>)}</optgroup>}
+                      {!info.fonts.some((f) => f.family === selected.fontFamily) && <option value={selected.fontFamily}>{selected.fontFamily} (missing)</option>}
                     </select>
                     <div className="ed-size">
                       <button onClick={() => setProp("fontSize", Math.max(10, Math.round(selected.fontSize) - 4))} aria-label="Smaller"><Minus size={14} /></button>
                       <input value={Math.round(selected.fontSize)} onChange={(e) => setProp("fontSize", Number(e.target.value) || selected.fontSize)} aria-label="Font size" />
                       <button onClick={() => setProp("fontSize", Math.round(selected.fontSize) + 4)} aria-label="Bigger"><Plus size={14} /></button>
                     </div>
-                    <label className="ed-color" title="Text colour" style={{ "--c": currentFill }}>
-                      <span className="ed-color-a">A</span>
-                      <input type="color" value={currentFill} onChange={(e) => setProp("fill", e.target.value)} />
-                    </label>
+                    <button className={`ed-color${colorTarget === "fill" ? " on" : ""}`} title="Text colour"
+                      style={{ "--c": typeof selected.fill === "string" ? currentFill : "linear-gradient(90deg, #F26B0F, #FFC94A)" }}
+                      onClick={() => setColorTarget(colorTarget === "fill" ? null : "fill")}>
+                      <span className="ed-color-a" style={{ borderImage: typeof selected.fill === "string" ? "none" : "linear-gradient(90deg, #F26B0F, #FFC94A) 1" }}>A</span>
+                    </button>
                     <button className={`ed-ctx${isBold(selected.fontWeight) ? " on" : ""}`} title="Bold"
                       onClick={() => setProp("fontWeight", isBold(selected.fontWeight) ? "400" : "800")}><Bold size={16} /></button>
                     {[["left", AlignLeft], ["center", AlignCenter], ["right", AlignRight]].map(([a, Icon]) => (
@@ -662,10 +837,10 @@ export default function Editor() {
                     <button className={`ed-ctx text${selected.shadow ? " on" : ""}`} onClick={() => setProp("shadow", selected.shadow ? null : shadow())}>Shadow</button>
                   </>
                 )}
-                {(isShape || isLine) && (
-                  <label className="ed-color swatch" title="Colour" style={{ "--c": isLine ? selected.stroke : currentFill }}>
-                    <input type="color" value={isLine ? selected.stroke : currentFill} onChange={(e) => setProp(isLine ? "stroke" : "fill", e.target.value)} />
-                  </label>
+                {(isShape || isLine || (["rect", "circle", "ellipse", "triangle", "polygon", "path"].includes(selected.type) && selected.fill?.colorStops)) && (
+                  <button className={`ed-color swatch${colorTarget ? " on" : ""}`} title="Colour"
+                    style={{ "--c": isLine ? selected.stroke : typeof selected.fill === "string" ? currentFill : "linear-gradient(135deg, #F26B0F, #FFC94A)" }}
+                    onClick={() => { const t = isLine ? "stroke" : "fill"; setColorTarget(colorTarget === t ? null : t); }} />
                 )}
                 <span className="ed-sep" />
                 <label className="ed-opacity" title="Transparency">
@@ -679,7 +854,10 @@ export default function Editor() {
                 <button className="ed-ctx danger" title="Delete" onClick={remove}><Trash2 size={16} /></button>
               </>
             ) : (
-              <span className="ed-hint">Select an item to edit it, or add something from the left.</span>
+              <span className={templateMode ? "ed-template-hint" : "ed-hint"}>
+                {templateMode ? "Template: click a text or picture, then choose Fill with to let the app fill it for each post. Save template when done."
+                  : "Select an item to edit it, or add something from the left."}
+              </span>
             )}
           </div>
 
@@ -687,9 +865,44 @@ export default function Editor() {
             <div ref={holder} className="ed-page" />
           </div>
           {error && <div className="ed-notice"><Notice kind="error">{error}</Notice></div>}
+          {colorTarget && info && (
+            <div className="ed-color-pop">
+              <ColorPanel key={`${colorTarget}-${selected ? c().getObjects().indexOf(selected) : "bg"}`}
+                title={{ fill: isText ? "Text colour" : "Colour", stroke: "Line colour", background: "Background colour" }[colorTarget]}
+                value={colorValue} allowGradient={colorTarget !== "stroke"}
+                docColors={docColors()} brandColors={brandColors}
+                onChange={applyColor} onClose={() => setColorTarget(null)} />
+            </div>
+          )}
+          {saveDialog && info?.template && (
+            <SaveTemplateDialog template={info.template} choices={info.choices} busy={busy === "save"}
+              onSave={(options) => save(options)} onClose={() => setSaveDialog(false)} />
+          )}
+          {templateMode && missingFonts.length > 0 && (
+            <div className="ed-notice ed-notice-bottom"><Notice kind="warning">
+              This template uses fonts the app doesn't have: <b>{missingFonts.join(", ")}</b>. Upload each font file (one you may use), or select those texts and choose another font.
+              <span className="tpl-fontfix">{missingFonts.map((fam) => (
+                <label key={fam} className="btn small">Upload {fam}
+                  <input type="file" accept=".ttf,.otf,.woff,.woff2" hidden onChange={async (e) => {
+                    const file = e.target.files?.[0]; if (!file) return;
+                    try {
+                      const weight = c().getObjects().find((o) => o.fontFamily === fam)?.fontWeight || "400";
+                      const f = await api.addFont(file, fam, String(weight));
+                      const face = new FontFace(fam, `url(/files/assets/fonts/${f.file})`, { weight: f.weight }); await face.load(); document.fonts.add(face);
+                      c().getObjects().forEach((o) => { if (o.fontFamily === fam) { o.initDimensions?.(); o.dirty = true; } });
+                      c().requestRenderAll(); setMissingFonts((m) => m.filter((x) => x !== fam));
+                    } catch (err) { setError(err.message); }
+                  }} /></label>
+              ))}</span>
+            </Notice></div>
+          )}
 
           <footer className="ed-bottom">
-            <span className="ed-hint">Double-click text to type · Delete removes · Arrows nudge</span>
+            <span className="ed-hint">Double-click text to type · Delete removes · Arrows nudge · Alt-drag moves without snapping</span>
+            <button className={`ed-guides${guides ? " on" : ""}`} aria-pressed={guides} title="Alignment guides while dragging"
+              onClick={() => { guidesOn.current = !guidesOn.current; setGuides(guidesOn.current); }}>
+              <Magnet size={15} /> Guides {guides ? "on" : "off"}
+            </button>
             <div className="ed-zoom">
               <button onClick={() => applyZoom(zoom - 0.1)} aria-label="Zoom out"><Minus size={14} /></button>
               <input type="range" min="20" max="150" value={Math.round(zoom * 100)} onChange={(e) => applyZoom(Number(e.target.value) / 100)} aria-label="Zoom" />

@@ -111,8 +111,9 @@ def generate_backgrounds(fid: str, body: GenerateIn):
 
 
 class FestivalPostIn(BaseModel):
-    background: str
+    background: str = ""                   # optional with a template (its own picture)
     layout: str = "text_right"
+    template_id: str = ""
     ai_generated: bool = False
     use_plan: bool = True
 
@@ -124,10 +125,11 @@ def create_festival_post(fid: str, body: FestivalPostIn):
     draft = run(
         festival_create.make_post,
         fest,
-        safe_path(body.background),
+        safe_path(body.background) if body.background else "",
         body.ai_generated,
         body.layout,
         plan,
+        body.template_id,
     )
     if plan:
         plans.update(

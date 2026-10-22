@@ -4,3 +4,6 @@ __pycache__/
 output/*
 !output/.gitkeep
 data/drafts.json
+backend/assets/templates/
+backend/assets/fonts/added/
+backend/data/added_fonts.json

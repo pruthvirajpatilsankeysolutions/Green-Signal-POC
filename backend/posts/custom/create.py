@@ -144,7 +144,7 @@ def photo_shape(path):
     return "portrait" if ratio < 0.85 else "landscape" if ratio > 1.25 else "square"
 
 
-def make_post(ptype, form, chosen, photo_path=""):
+def make_post(ptype, form, chosen, photo_path="", template_id=""):
     """Poster + caption from the form and the chosen words. Returns the draft."""
     form = check_form(ptype, form)
     if TYPES[ptype]["photo"] == "required" and not photo_path:
@@ -155,6 +155,17 @@ def make_post(ptype, form, chosen, photo_path=""):
         raise ValueError("Choose or write a headline and a caption first.")
 
     md = marathi_digits
+    if template_id:                                        # the user picked a saved template
+        from posts import template_post
+        lang = current()["language"]
+        first = next((line.strip() for key in ("details", "offer", "about", "note", "title")
+                      for line in str(form.get(key) or "").splitlines() if line.strip()), "")
+        small = kind_label(form.get("kind"), lang) or occasion_label(form.get("occasion"), lang) or form.get("product") or ""
+        return template_post.make_post(
+            template_id, {"line_small": md(small), "line_big": headline, "line_end": md(first)},
+            title=f"{TYPES[ptype]['label']}: {headline}", caption=caption, hashtags=final_hashtags(chosen.get("hashtags")),
+            details={"post_type": ptype, "form": form, "photo": photo_path, "headline": headline},
+            post_type="custom", photo=photo_path)
     poster = {k: (md(v) if isinstance(v, str) else v) for k, v in form.items()}
     if ptype == "achievement":
         poster["stats"] = [

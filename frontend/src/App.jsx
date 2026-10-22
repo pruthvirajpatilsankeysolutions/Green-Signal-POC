@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import {
-  CalendarHeart, Camera, CheckCircle2, ChevronRight, History as HistoryIcon, LayoutDashboard, Newspaper, PlusSquare, Users,
+  CalendarHeart, Camera, CheckCircle2, ChevronRight, History as HistoryIcon, LayoutDashboard, Newspaper, PlusSquare, Users, LayoutTemplate,
 } from "lucide-react";
 import { api, getClientId, setClientId } from "./api.js";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -11,6 +11,7 @@ import Reaction from "./pages/Reaction.jsx";
 import Approvals from "./pages/Approvals.jsx";
 import History from "./pages/History.jsx";
 import Clients from "./pages/Clients.jsx";
+import Templates from "./pages/Templates.jsx";
 import Editor from "./pages/Editor.jsx";
 import CreatePost from "./pages/CreatePost.jsx";
 
@@ -40,13 +41,13 @@ const NAV = [
   },
   {
     title: "Settings",
-    items: [{ to: "/clients", label: "Clients", icon: Users }],
+    items: [{ to: "/clients", label: "Clients", icon: Users }, { to: "/templates", label: "Templates", icon: LayoutTemplate }],
   },
 ];
 
 const PAGE_NAMES = {
   "/": "Dashboard", "/festivals": "Festivals", "/events": "Events",
-  "/reactions": "News reactions", "/create": "Create post", "/approvals": "Approvals", "/history": "History", "/clients": "Clients",
+  "/reactions": "News reactions", "/create": "Create post", "/approvals": "Approvals", "/history": "History", "/clients": "Clients", "/templates": "Templates",
 };
 const pageName = (path) => PAGE_NAMES[path] || (path.startsWith("/editor") ? "Edit design" : "");
 
@@ -79,7 +80,10 @@ export default function App() {
   if (pathname.startsWith("/editor/")) {
     return (
       <StatusContext.Provider value={{ status, refresh }}>
-        <Routes><Route path="/editor/:id" element={<Editor />} /></Routes>
+        <Routes>
+          <Route path="/editor/template/:tid" element={<Editor />} />
+          <Route path="/editor/:id" element={<Editor />} />
+        </Routes>
       </StatusContext.Provider>
     );
   }
@@ -144,6 +148,7 @@ export default function App() {
               <Route path="/approvals" element={<Approvals />} />
               <Route path="/history" element={<History />} />
               <Route path="/clients" element={<Clients onChanged={refresh} onSwitch={switchClient} />} />
+              <Route path="/templates" element={<Templates />} />
             </Routes>
           </main>
         </div>

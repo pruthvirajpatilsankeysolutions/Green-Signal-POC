@@ -119,6 +119,24 @@ class Draft(Base):
     design: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class Template(Base):
+    """A design template (Fabric JSON) imported from a PPTX; its texts are marked as slots the app fills."""
+    __tablename__ = "templates"
+    id: Mapped[str] = mapped_column(String(60), primary_key=True)
+    name: Mapped[str] = mapped_column(Text, default="")
+    width: Mapped[int] = mapped_column(Integer, default=1080)
+    height: Mapped[int] = mapped_column(Integer, default=1080)
+    design: Mapped[dict] = mapped_column(JSON, default=dict)          # Fabric JSON with "slot" on texts/images
+    thumbnail: Mapped[str] = mapped_column(Text, default="")          # file path of a small PNG
+    occasions: Mapped[list] = mapped_column(JSON, default=list)       # festival ids; [] = any
+    client_types: Mapped[list] = mapped_column(JSON, default=list)    # e.g. ["school"]; [] = all
+    client_id: Mapped[str] = mapped_column(String(60), default="")    # set = only this client may use it
+    source: Mapped[str] = mapped_column(Text, default="")             # the imported file name
+    ready: Mapped[bool] = mapped_column(Boolean, default=False)       # slots marked and saved
+    created_at: Mapped[str] = mapped_column(String(20), default=now_text)
+    updated_at: Mapped[str] = mapped_column(String(20), default=now_text)
+
+
 class PostPlan(Base):
     __tablename__ = "post_plans"
     id: Mapped[str] = mapped_column(String(12), primary_key=True)
