@@ -161,6 +161,8 @@ function ReviewPanel({ draft, onDone }) {
 }
 
 function ApprovedPanel({ draft }) {
+  const [hdBusy, setHdBusy] = useState(-1);
+  const [hdError, setHdError] = useState("");
   const [copied, setCopied] = useState(false);
   const text = [draft.caption, draft.hashtags.join(" ")].filter(Boolean).join("\n\n");
 
@@ -183,10 +185,17 @@ function ApprovedPanel({ draft }) {
           <span className="field-label">Images</span>
           <div className="downloads">
             {draft.image_urls.map((u, i) => (
-              <a key={u} className="btn" href={u} download>
-                <Download size={16} aria-hidden="true" /> Image {i + 1}
-              </a>
+              <span key={u} className="dl-pair">
+                <a className="btn" href={u} download>
+                  <Download size={16} aria-hidden="true" /> Image {i + 1}
+                </a>
+                <button className="btn" disabled={hdBusy === i} title="Twice the size: sharp when zoomed in or printed"
+                        onClick={async () => { setHdBusy(i); setHdError(""); try { await api.downloadHd(draft.id, i, 2); } catch (e) { setHdError(e.message); } setHdBusy(-1); }}>
+                  {hdBusy === i ? "Preparing HD…" : "HD 2×"}
+                </button>
+              </span>
             ))}
+            {hdError && <span className="muted">{hdError}</span>}
           </div>
         </div>
         <div className="field">

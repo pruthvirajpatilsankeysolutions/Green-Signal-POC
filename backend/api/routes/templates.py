@@ -2,7 +2,6 @@
 Templates: upload a PowerPoint -> converted to a Fabric template -> edited in the design editor
 (choose what the app fills: "Fill with") -> saved. When creating a post, the user picks a template.
 """
-
 import base64
 import io
 import re
@@ -18,6 +17,8 @@ from api.helpers import run, to_url
 from api.routes.designs import all_fonts
 from config import ASSETS_DIR
 from design import pptx_to_fabric
+from design import google_fonts
+from design.font_substitutes import substitute
 from storage import clients, fonts, templates
 from storage import festivals as festival_store
 from storage.categories import public_list as categories
@@ -48,49 +49,53 @@ SLOTS = [
 
 
 def _fonts():
-    return [
-        {**f, "url": f"/files/assets/fonts/{f['file']}"}
-        for f in all_fonts()
-        if (ASSETS_DIR / "fonts" / f["file"]).exists()
-    ]
+    return [{**f, "url": f"/files/assets/fonts/{f['file']}"} for f in all_fonts() if (ASSETS_DIR / "fonts" / f["file"]).exists()]
+
+
+def _download_missing_fonts(design):
+    """Fonts the app doesn't have but Google Fonts does (open licence): download them now.
+    Returns (downloaded, not on Google Fonts); fonts that couldn't be checked (offline) are in neither."""
+    got, unavailable = [], []
+    for family in _missing(design):
+        try:
+            (got if google_fonts.download(family) else unavailable).append(family)
+        except Exception:                      # offline or a network error: the import still works (substitutes)
+            continue
+    return got, unavailable
+
+
+def _replace_missing_fonts(design):
+    """Fonts the app doesn't have get a close-looking substitute (the original name is kept in sourceFamily)."""
+    have = {f["family"] for f in _fonts()}
+    for o in design.get("objects", []):
+        if str(o.get("type", "")).lower() == "textbox" and o.get("fontFamily") not in have:
+            o["sourceFamily"] = o["fontFamily"]
+            o["fontFamily"] = substitute(o["fontFamily"], have)
+    return design
+
+
+def _replaced(design):
+    """{original font: substitute} for fonts still replaced (original not uploaded yet)."""
+    have = {f["family"] for f in _fonts()}
+    return {o["sourceFamily"]: o["fontFamily"] for o in design.get("objects", [])
+            if o.get("sourceFamily") and o["sourceFamily"] not in have and o["fontFamily"] != o["sourceFamily"]}
 
 
 def _missing(design):
     have = {f["family"] for f in _fonts()}
-    return sorted(
-        {
-            o["fontFamily"]
-            for o in design.get("objects", [])
-            if str(o.get("type", "")).lower() == "textbox"
-            and o.get("fontFamily") not in have
-        }
-    )
+    return sorted({o["fontFamily"] for o in design.get("objects", []) if str(o.get("type", "")).lower() == "textbox" and o.get("fontFamily") not in have})
 
 
 def _card(t):
     if not t:
         raise HTTPException(404, "Template not found")
-    slots = (
-        sorted(
-            {o["slot"] for o in t.get("design", {}).get("objects", []) if o.get("slot")}
-        )
-        if t.get("design")
-        else t.get("slots", [])
-    )
-    return {k: v for k, v in t.items() if k != "design"} | {
-        "thumbnail_url": to_url(t["thumbnail"]) if t.get("thumbnail") else "",
-        "slots": slots,
-    }
+    slots = sorted({o["slot"] for o in t.get("design", {}).get("objects", []) if o.get("slot")}) if t.get("design") else t.get("slots", [])
+    return {k: v for k, v in t.items() if k != "design"} | {"thumbnail_url": to_url(t["thumbnail"]) if t.get("thumbnail") else "", "slots": slots}
 
 
 @router.get("")
 def list_templates():
-    return {
-        "templates": [
-            _card(run(templates.get, t["id"])) for t in run(templates.list_all)
-        ],
-        "slots": SLOTS,
-    }
+    return {"templates": [_card(run(templates.get, t["id"])) for t in run(templates.list_all)], "slots": SLOTS}
 
 
 @router.get("/for-post")
@@ -104,11 +109,7 @@ def templates_for_post(occasion: str = "", post_type: str = ""):
             continue
         if t["client_types"] and not kinds & set(t["client_types"]):
             continue
-        if (
-            t["occasions"]
-            and occasion not in t["occasions"]
-            and post_type not in t["occasions"]
-        ):
+        if t["occasions"] and occasion not in t["occasions"] and post_type not in t["occasions"]:
             continue
         out.append(_card(run(templates.get, t["id"])))
     return {"templates": out}
@@ -119,10 +120,7 @@ async def import_pptx(file: UploadFile = File(...)):
     """Upload a PowerPoint: it is converted and opened in the editor."""
     if not (file.filename or "").lower().endswith(".pptx"):
         raise HTTPException(400, "Please choose a PowerPoint file (.pptx).")
-    stem = (
-        re.sub(r"[^a-z0-9]+", "_", Path(file.filename).stem.lower()).strip("_")[:40]
-        or "template"
-    )
+    stem = re.sub(r"[^a-z0-9]+", "_", Path(file.filename).stem.lower()).strip("_")[:40] or "template"
     template_id = f"{stem}_{uuid.uuid4().hex[:5]}"
     folder = ASSETS_DIR / "templates" / template_id
     folder.mkdir(parents=True, exist_ok=True)
@@ -137,15 +135,9 @@ async def import_pptx(file: UploadFile = File(...)):
     if not design["objects"]:
         raise HTTPException(400, "No texts or pictures found on the first slide.")
     design = pptx_to_fabric.guess_slots(design, width, height)
-    run(
-        templates.create,
-        template_id,
-        Path(file.filename).stem.replace("_", " "),
-        width,
-        height,
-        design,
-        file.filename,
-    )
+    design["downloadedFonts"], design["unavailableFonts"] = _download_missing_fonts(design)   # open fonts from Google Fonts
+    design = _replace_missing_fonts(design)                          # the rest: a similar font
+    run(templates.create, template_id, Path(file.filename).stem.replace("_", " "), width, height, design, file.filename)
     return {"id": template_id, "missing_fonts": _missing(design)}
 
 
@@ -156,59 +148,30 @@ def template_design(template_id: str):
     if not t:
         raise HTTPException(404, "Template not found")
     client = clients.current()
-    brand = [
-        {"name": a["kind"].title(), "url": to_url(a["path"])} for a in client["assets"]
-    ]
+    brand = [{"name": a["kind"].title(), "url": to_url(a["path"])} for a in client["assets"]]
     fests, _ = festival_store.load()
-    return {
-        "draft": {
-            "id": template_id,
-            "title": t["name"],
-            "images": [],
-            "image_urls": [],
-        },
-        "template": {
-            "id": template_id,
-            "name": t["name"],
-            "missing_fonts": _missing(t["design"]),
-            "occasions": t["occasions"],
-            "client_types": t["client_types"],
-            "only_this_client": bool(t["client_id"]),
-            "client_name": client["name"],
-        },
-        # choices for the "Save template" dialog
-        "choices": {
-            "post_types": POST_TYPES,
-            "festivals": [
-                {
-                    "id": f["id"],
-                    "name": f.get("occasion_en") or f["occasion_mr"],
-                    "date": f["date"],
-                }
-                for f in fests
-            ],
-            "client_types": [
-                {"id": c["id"], "label": c["label"]} for c in categories()
-            ],
-        },
-        "saved": t["design"],
-        "starter": None,
-        "brand_assets": brand,
-        "fonts": _fonts(),
-        "slots": SLOTS,
-        "size": t["design"].get("size") or {"width": t["width"], "height": t["height"]},
-    }
+    return {"draft": {"id": template_id, "title": t["name"], "images": [], "image_urls": []},
+            "template": {"id": template_id, "name": t["name"], "missing_fonts": _missing(t["design"]),
+                         "replaced_fonts": _replaced(t["design"]),
+                         "downloaded_fonts": t["design"].get("downloadedFonts", []),
+                         "unavailable_fonts": t["design"].get("unavailableFonts", []),
+                         "occasions": t["occasions"], "client_types": t["client_types"], "only_this_client": bool(t["client_id"]),
+                         "client_name": client["name"]},
+            # choices for the "Save template" dialog
+            "choices": {"post_types": POST_TYPES,
+                        "festivals": [{"id": f["id"], "name": f.get("occasion_en") or f["occasion_mr"], "date": f["date"]} for f in fests],
+                        "client_types": [{"id": c["id"], "label": c["label"]} for c in categories()]},
+            "saved": t["design"], "starter": None, "brand_assets": brand, "fonts": _fonts(), "slots": SLOTS,
+            "size": t["design"].get("size") or {"width": t["width"], "height": t["height"]}}
 
 
 class DesignIn(BaseModel):
-    design: dict  # Fabric JSON from the editor (with "slot" on the parts the app fills)
-    image: str  # the exported PNG (becomes the thumbnail)
+    design: dict                         # Fabric JSON from the editor (with "slot" on the parts the app fills)
+    image: str                           # the exported PNG (becomes the thumbnail)
     # options from the "Save template" dialog (left out = unchanged)
     name: Optional[str] = None
-    occasions: Optional[List[str]] = (
-        None  # post types and/or festival ids; [] = all posts
-    )
-    client_types: Optional[List[str]] = None  # [] = all client types
+    occasions: Optional[List[str]] = None          # post types and/or festival ids; [] = all posts
+    client_types: Optional[List[str]] = None       # [] = all client types
     only_this_client: Optional[bool] = None
 
 
@@ -217,12 +180,7 @@ def save_template_design(template_id: str, body: DesignIn):
     t = run(templates.get, template_id)
     if not t:
         raise HTTPException(404, "Template not found")
-    design = {
-        **body.design,
-        "size": body.design.get("size")
-        or t["design"].get("size")
-        or {"width": t["width"], "height": t["height"]},
-    }
+    design = {**body.design, "size": body.design.get("size") or t["design"].get("size") or {"width": t["width"], "height": t["height"]}}
     fields = {"design": design, "ready": True}
     if body.name is not None:
         fields["name"] = body.name.strip() or t["name"]
@@ -234,9 +192,7 @@ def save_template_design(template_id: str, body: DesignIn):
         fields["client_id"] = clients.current()["id"] if body.only_this_client else ""
     if body.image.startswith("data:image/png;base64,"):
         thumb = ASSETS_DIR / "templates" / template_id / "thumbnail.png"
-        im = Image.open(
-            io.BytesIO(base64.b64decode(body.image.split(",", 1)[1]))
-        ).convert("RGB")
+        im = Image.open(io.BytesIO(base64.b64decode(body.image.split(",", 1)[1]))).convert("RGB")
         im.thumbnail((360, 480))
         im.save(thumb)
         fields["thumbnail"] = str(thumb)
@@ -246,8 +202,8 @@ def save_template_design(template_id: str, body: DesignIn):
 
 class SettingsIn(BaseModel):
     name: str
-    occasions: List[str] = []  # festival ids or post types; empty = any
-    client_types: List[str] = []  # empty = all
+    occasions: List[str] = []            # festival ids or post types; empty = any
+    client_types: List[str] = []         # empty = all
     only_this_client: bool = False
 
 
@@ -255,15 +211,9 @@ class SettingsIn(BaseModel):
 def save_settings(template_id: str, body: SettingsIn):
     if not run(templates.get, template_id):
         raise HTTPException(404, "Template not found")
-    t = run(
-        lambda: templates.save(
-            template_id,
-            name=body.name.strip() or template_id,
-            occasions=body.occasions,
-            client_types=body.client_types,
-            client_id=clients.current()["id"] if body.only_this_client else "",
-        )
-    )
+    t = run(lambda: templates.save(template_id, name=body.name.strip() or template_id, occasions=body.occasions,
+                                    client_types=body.client_types,
+                                    client_id=clients.current()["id"] if body.only_this_client else ""))
     return _card(t)
 
 
@@ -273,21 +223,28 @@ def delete_template(template_id: str):
     return {"deleted": template_id}
 
 
+class AutoFontIn(BaseModel):
+    family: str
+
+
+@router.post("/fonts/auto")
+def auto_font(body: AutoFontIn):
+    """Download a font from Google Fonts (open licence only). 404 if it isn't there (e.g. a Canva font)."""
+    try:
+        added = google_fonts.download(body.family.strip())
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(502, "Couldn't reach Google Fonts. Check the internet connection and try again.")
+    if not added:
+        raise HTTPException(404, f"{body.family} isn't on Google Fonts (a Canva or commercial font).")
+    return {"family": added[0]["family"], "licence": added[0]["licence"],
+            "fonts": [{**f, "url": f"/files/assets/fonts/{f['file']}"} for f in added]}
+
+
 @router.post("/fonts")
-async def add_font(
-    file: UploadFile = File(...),
-    family: str = Form(...),
-    weight: Optional[str] = Form("400"),
-):
+async def add_font(file: UploadFile = File(...), family: str = Form(...), weight: Optional[str] = Form("400")):
     """Add a font a template needs (a .ttf / .otf / .woff2 file you're allowed to use)."""
     if not (file.filename or "").lower().endswith((".ttf", ".otf", ".woff2", ".woff")):
-        raise HTTPException(
-            400, "Please choose a font file (.ttf, .otf, .woff or .woff2)."
-        )
-    return run(
-        fonts.add,
-        family.strip(),
-        (weight or "400").strip(),
-        file.filename,
-        await file.read(),
-    )
+        raise HTTPException(400, "Please choose a font file (.ttf, .otf, .woff or .woff2).")
+    return run(fonts.add, family.strip(), (weight or "400").strip(), file.filename, await file.read())

@@ -6,7 +6,7 @@ Run from the backend folder:
     uvicorn api.main:app --reload --port 8000
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -50,6 +50,13 @@ app.include_router(reactions_routes.router)
 app.include_router(drafts_routes.router)
 app.include_router(templates_routes.router)
 app.include_router(designs_routes.router)
+
+# ---------------------------------------------------------------- unknown API routes: a clear 404
+# (without this, the React catch-all below answers a POST to a missing API route with a confusing 405)
+@app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)
+def api_not_found(rest: str):
+    raise HTTPException(404, f"API route /api/{rest} not found. If the code was just updated, restart the backend.")
+
 
 # ---------------------------------------------------------------- files (posters, uploads, assets)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

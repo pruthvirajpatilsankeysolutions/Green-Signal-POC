@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Canvas, FabricImage, FabricObject, Gradient, Rect, Shadow, Textbox, loadSVGFromString, util } from "fabric";
+import { Canvas, FabricImage, FabricObject, Gradient, Rect, Shadow, Textbox, config as fabricConfig, filters, loadSVGFromString, util } from "fabric";
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, Bold, ChevronLeft, Copy, Download, Image as ImageIcon,
-  Layers, Lock, Magnet, Maximize, Minus, Palette, Plus, Redo2, Save, Shapes, Trash2, Type, Undo2, Unlock, Upload, Wallpaper,
+  FlipHorizontal2, FlipVertical2, Layers, Lock, Magnet, Maximize, Minus, Palette, Plus, Redo2, Save, Shapes, Trash2, Type, Undo2, Unlock, Upload, Wallpaper,
 } from "lucide-react";
 import { api } from "../api.js";
 import { useStatus } from "../App.jsx";
@@ -13,10 +13,12 @@ import ColorPanel, { DIRECTIONS, normHex } from "../components/ColorPanel.jsx";
 import { BADGES, GRAPHICS } from "../editor/graphics.js";
 import { LINES, OVERLAYS, SHAPES, makeBadge } from "../editor/shapes.js";
 
-
 // Fabric.js 7 measures positions from an object's centre by default; this app uses the top-left corner.
 FabricObject.ownDefaults.originX = "left";
 FabricObject.ownDefaults.originY = "top";
+// Pictures draw straight onto the page (no low-quality cached copy), so the high-quality
+// smoothing below applies to them when they are shown smaller than their real size.
+FabricImage.ownDefaults.objectCaching = false;
 
 // The background always fills the whole board and can't be selected, moved or resized (like Canva).
 // It is changed only from the Background tab. Also repairs designs saved with a moved background.
@@ -67,7 +69,7 @@ const portableSources = (json) => {
 
 // saved with every design; "slot" (and its fitting rules) marks what the app fills in a template
 const EXTRA = ["name", "isBackground", "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls",
-  "slot", "minSize", "maxLines", "sourceFont"];
+  "slot", "minSize", "maxLines", "sourceFont", "sourceFamily", "vAlign", "boxTop", "boxHeight"];
 const EMOJIS = ["🪔", "🎉", "🎊", "✨", "🌸", "🌼", "🌺", "🏵️", "🌻", "🌷", "💐", "🌹", "🙏", "👏", "🤝", "💪",
   "❤️", "🧡", "💛", "💚", "💙", "💜", "⭐", "🌟", "🔥", "🎁", "🍬", "🍭", "🍰", "🎂", "🧁", "🍫",
   "🥳", "🎈", "🎀", "🪷", "🕉️", "🚩", "🇮🇳", "🏏", "🏆", "🥇", "📢", "📍", "📞", "✅", "☀️", "🌙"];
@@ -75,18 +77,12 @@ const COLORS = ["#FFFFFF", "#111111", "#FFC94A", "#F2A007", "#F26B0F", "#C8261B"
 const BG_COLORS = ["#FFFFFF", "#FFF4DC", "#FBEBD8", "#FDE2E4", "#E8F5EF", "#E0ECFF", "#1F2347", "#111111", "#7A1F12", "#0E7C5A"];
 // sample texts in the client's post language (Marathi / Hindi / English)
 const SAMPLES = {
-  mr: {
-    box: "नवीन मजकूर", heading: "मुख्य शीर्षक", sub: "उपशीर्षक", body: "येथे मजकूर लिहा",
-    combos: ["हार्दिक शुभेच्छा!", "विनम्र अभिवादन!", "मानाचा मुजरा!"], name: "Marathi"
-  },
-  hi: {
-    box: "नया टेक्स्ट", heading: "मुख्य शीर्षक", sub: "उपशीर्षक", body: "यहाँ टेक्स्ट लिखें",
-    combos: ["हार्दिक शुभकामनाएं!", "विनम्र श्रद्धांजलि!", "शत-शत नमन!"], name: "Hindi"
-  },
-  en: {
-    box: "New text", heading: "Your heading", sub: "Subheading", body: "Write your text here",
-    combos: ["Warm wishes!", "Humble tributes", "Thank you!"], name: "English"
-  },
+  mr: { box: "नवीन मजकूर", heading: "मुख्य शीर्षक", sub: "उपशीर्षक", body: "येथे मजकूर लिहा",
+        combos: ["हार्दिक शुभेच्छा!", "विनम्र अभिवादन!", "मानाचा मुजरा!"], name: "Marathi" },
+  hi: { box: "नया टेक्स्ट", heading: "मुख्य शीर्षक", sub: "उपशीर्षक", body: "यहाँ टेक्स्ट लिखें",
+        combos: ["हार्दिक शुभकामनाएं!", "विनम्र श्रद्धांजलि!", "शत-शत नमन!"], name: "Hindi" },
+  en: { box: "New text", heading: "Your heading", sub: "Subheading", body: "Write your text here",
+        combos: ["Warm wishes!", "Humble tributes", "Thank you!"], name: "English" },
 };
 const presetsFor = (s) => [
   { label: "Add a heading", text: s.heading, font: "Baloo 2", weight: "800", size: 110, cls: "p-heading" },
@@ -137,7 +133,6 @@ function measuredText(item) {
 
 const isBold = (w) => ["700", "800", "bold"].includes(String(w));
 
-
 // ---------------------------------------------------------------- alignment guides (like Canva)
 // While an element is dragged, its edges and centre snap to the page centre / edges and to other
 // elements' edges and centres; pink dashed lines show what it lines up with. Hold Alt to move freely.
@@ -178,9 +173,9 @@ function addAlignmentGuides(c, size, enabled) {
     const now = box(obj);
     // vertical line: full page height for the page, otherwise from one element to the other
     if (vx) lines.push(vx.target.page ? { x: vx.at, y1: 0, y2: size.height }
-      : { x: vx.at, y1: Math.min(now.t, vx.target.t) - 20, y2: Math.max(now.b, vx.target.b) + 20 });
+                                      : { x: vx.at, y1: Math.min(now.t, vx.target.t) - 20, y2: Math.max(now.b, vx.target.b) + 20 });
     if (hy) lines.push(hy.target.page ? { y: hy.at, x1: 0, x2: size.width }
-      : { y: hy.at, x1: Math.min(now.l, hy.target.l) - 20, x2: Math.max(now.r, hy.target.r) + 20 });
+                                      : { y: hy.at, x1: Math.min(now.l, hy.target.l) - 20, x2: Math.max(now.r, hy.target.r) + 20 });
   });
   const clear = () => { if (lines.length) { lines = []; c.requestRenderAll(); } };
   c.on("mouse:up", clear);
@@ -207,13 +202,10 @@ function addAlignmentGuides(c, size, enabled) {
   });
 }
 
-
 // colour panel value ("#hex" or {type: "gradient", stops, dir}) <-> Fabric fill
 const toFabricFill = (v) => (v && typeof v === "object"
-  ? new Gradient({
-    type: "linear", gradientUnits: "percentage", coords: DIRECTIONS[v.dir]?.coords || DIRECTIONS.down.coords,
-    colorStops: [{ offset: 0, color: v.stops[0] }, { offset: 1, color: v.stops[1] }]
-  })
+  ? new Gradient({ type: "linear", gradientUnits: "percentage", coords: DIRECTIONS[v.dir]?.coords || DIRECTIONS.down.coords,
+                   colorStops: [{ offset: 0, color: v.stops[0] }, { offset: 1, color: v.stops[1] }] })
   : v);
 const fromFabricFill = (f) => {
   if (f && typeof f === "object" && f.colorStops?.length) {
@@ -229,6 +221,11 @@ export default function Editor() {
   const { id, tid } = useParams();
   const templateMode = !!tid;                              // editing a template (Templates page), not a post
   const [missingFonts, setMissingFonts] = useState([]);
+  const [replacedFonts, setReplacedFonts] = useState({});  // template fonts the app doesn't have -> the similar font used
+  const [downloadedFonts, setDownloadedFonts] = useState([]); // fonts fetched from Google Fonts on import
+  const [fontBusy, setFontBusy] = useState("");             // the font being downloaded now ("*" = all)
+  const [fontNotes, setFontNotes] = useState({});           // fonts that couldn't be downloaded -> why
+  const [unavailableFonts, setUnavailableFonts] = useState([]); // checked: not on Google Fonts (Canva / commercial)
   const [saveDialog, setSaveDialog] = useState(false);     // template mode: Save opens the options dialog
   const [colorTarget, setColorTarget] = useState(null);    // "fill" | "stroke" | "background": the open colour panel
   const guidesOn = useRef(true);                           // alignment guides (bottom bar toggle)
@@ -285,14 +282,23 @@ export default function Editor() {
   };
 
   // ---------------------------------------------------------------- zoom
+  // While zooming, pictures are drawn with the browser's quick shrinking; when zooming stops, they are
+  // re-shrunk once at full quality. Re-filtering every large picture on every zoom step made zooming slow.
+  const zoomSettle = useRef(null);
   const applyZoom = useCallback((z) => {
     const c = canvasRef.current;
     if (!c || !info) return;
     const value = Math.min(1.5, Math.max(0.2, z));
+    c.getObjects().forEach((o) => { if (o.resizeFilter) { o._resizeWhenSettled = o.resizeFilter; o.resizeFilter = null; } });
     c.setDimensions({ width: info.size.width * value, height: info.size.height * value });
     c.setZoom(value);
     c.requestRenderAll();
     setZoomState(value);
+    clearTimeout(zoomSettle.current);
+    zoomSettle.current = setTimeout(() => {
+      c.getObjects().forEach((o) => { if (o._resizeWhenSettled) { o.resizeFilter = o._resizeWhenSettled; delete o._resizeWhenSettled; } });
+      c.requestRenderAll();
+    }, 250);
   }, [info]);
 
   const fitZoom = useCallback(() => {
@@ -311,23 +317,43 @@ export default function Editor() {
       try {
         const data = templateMode ? await api.templateDesign(tid) : await api.design(id);
         setMissingFonts(data.template?.missing_fonts || []);
+        setReplacedFonts(data.template?.replaced_fonts || {});
+        setDownloadedFonts(data.template?.downloaded_fonts || []);
+        setUnavailableFonts(data.template?.unavailable_fonts || []);
         // register every font; load the core ones now, plus any font the saved design uses
         faces.current = data.fonts.map((f) => {
           const face = new FontFace(f.family, `url(${f.url})`, { weight: f.weight });
           document.fonts.add(face);
           return { family: f.family, core: f.core, face };
         });
-        const used = new Set((data.saved?.objects || []).flatMap((o) => [o.fontFamily, ...(o.objects || []).map((x) => x.fontFamily)]).filter(Boolean));
+        // Rozha One draws Marathi digits like Latin ones: take its digits from Laila Bold (same as the posts)
+        const laila = data.fonts.find((f) => f.family === "Laila");
+        if (laila && data.fonts.some((f) => f.family === "Rozha One")) {
+          const digits = new FontFace("Rozha One", `url(${laila.url})`, { weight: "400", unicodeRange: "U+0966-096F" });
+          document.fonts.add(digits);
+          faces.current.push({ family: "Rozha One", core: true, face: digits });
+        }
+        // every font the design uses, including fonts of single characters (e.g. Marathi digits drawn in Laila)
+        const used = new Set([...JSON.stringify(data.saved || {}).matchAll(/"fontFamily":"([^"]+)"/g)].map((m) => m[1]));
         await Promise.all(faces.current.filter((f) => f.core || used.has(f.family)).map((f) => f.face.load().catch(() => null)));
         if (disposed) return;
         const { width, height } = data.size;
+        fabricConfig.devicePixelRatio = window.devicePixelRatio;     // the screen's density right now
         const c = new Canvas(el, { preserveObjectStacking: true, backgroundColor: "#ffffff" });
+        // the browser's default image shrinking skips pixels (moire, jagged lines); use its high-quality
+        // resampling for every render: on screen and in exports (Download / Save design)
+        c.on("before:render", ({ ctx }) => { if (ctx) ctx.imageSmoothingQuality = "high"; });
+        // pictures shown much smaller than their real size are first shrunk properly (averaging pixels),
+        // at the size they are drawn: on screen at any zoom, and again at full size when exporting
+        const sharpen = (o) => { if (o?.type === "image" && !o.resizeFilter) o.resizeFilter = new filters.Resize({ resizeType: "sliceHack" }); };
+        c.on("object:added", (e) => sharpen(e.target));
         c.setDimensions({ width: width * 0.5, height: height * 0.5 });
         c.setZoom(0.5);
         canvasRef.current = c;
         history.current.paused = true;
         if (data.saved) {
           await c.loadFromJSON(portableSources(data.saved));
+          if (!c.backgroundColor) c.backgroundColor = "#ffffff";      // designs without a background colour: white, never transparent
         } else {
           const st = data.starter;
           if (st.background) {
@@ -357,6 +383,7 @@ export default function Editor() {
             }
           }
         }
+        c.getObjects().forEach((o) => { if (o.type === "image" && !o.resizeFilter) o.resizeFilter = new filters.Resize({ resizeType: "sliceHack" }); });
         pinBackground(c);
         c.requestRenderAll();
         history.current.paused = false;
@@ -385,6 +412,27 @@ export default function Editor() {
   }, [id, tid, snapshot]);
 
   useEffect(() => { if (info) fitZoom(); }, [info]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Stay sharp when the screen's pixel density changes after the editor opened (browser zoom with
+  // Ctrl + / Ctrl -, or moving the window to a monitor with another display scale): rebuild the
+  // canvas at the new resolution, keeping the current zoom. Without this, everything is stretched.
+  useEffect(() => {
+    let mq = null;
+    const onChange = () => {
+      // Fabric copies the pixel density once when the app loads; give it the new one, then rebuild
+      fabricConfig.devicePixelRatio = window.devicePixelRatio;
+      const c = canvasRef.current;
+      if (c && info) applyZoom(c.getZoom());
+      watch();
+    };
+    const watch = () => {
+      mq?.removeEventListener("change", onChange);
+      mq = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      mq.addEventListener("change", onChange);
+    };
+    watch();
+    return () => mq?.removeEventListener("change", onChange);
+  }, [applyZoom, info]);
   useEffect(() => {
     const onResize = () => fitZoom();
     window.addEventListener("resize", onResize);
@@ -503,10 +551,36 @@ export default function Editor() {
     c().backgroundColor = color; c().requestRenderAll(); snapshot();
   };
 
-  const remove = () => {
-    const obj = c()?.getActiveObject();
-    if (!obj) return;
-    c().remove(obj); c().discardActiveObject(); c().requestRenderAll(); setSelected(null); snapshot();
+  // ---------------------------------------------------------------- template fonts
+  // A font is now available (downloaded or uploaded): load it and switch back the texts that used a similar font.
+  const applyFont = async (fam, fontsAdded) => {
+    for (const f of fontsAdded) {
+      const face = new FontFace(f.family, `url(${f.url || `/files/assets/fonts/${f.file}`})`, { weight: f.weight });
+      await face.load(); document.fonts.add(face);
+    }
+    setInfo((i) => ({ ...i, fonts: [...i.fonts, ...fontsAdded.map((f) => ({ ...f, url: f.url || `/files/assets/fonts/${f.file}` }))] }));
+    const uses = (o) => o.fontFamily === fam || o.sourceFamily === fam;
+    c().getObjects().forEach((o) => { if (uses(o)) { o.set({ fontFamily: fontsAdded[0].family }); o.initDimensions?.(); o.dirty = true; } });
+    c().requestRenderAll(); snapshot();
+    setMissingFonts((m) => m.filter((x) => x !== fam));
+    setReplacedFonts((r) => { const n = { ...r }; delete n[fam]; return n; });
+  };
+  const downloadFont = async (fam) => {
+    try {
+      const res = await api.autoFont(fam);
+      await applyFont(fam, res.fonts);
+      setDownloadedFonts((d) => [...new Set([...d, fam])]);
+      return true;
+    } catch (err) {
+      if (/isn't on Google Fonts/.test(err.message)) setUnavailableFonts((u) => [...new Set([...u, fam])]);
+      else setFontNotes((n) => ({ ...n, [fam]: err.message }));          // e.g. no internet: worth trying again
+      return false;
+    }
+  };
+  const downloadAllFonts = async (families) => {
+    setFontBusy("*");
+    for (const fam of families) await downloadFont(fam);
+    setFontBusy("");
   };
 
   // ---------------------------------------------------------------- colour panel
@@ -552,6 +626,11 @@ export default function Editor() {
   // close the panel when its object is no longer selected
   useEffect(() => { if (colorTarget && colorTarget !== "background" && !selected) setColorTarget(null); }, [selected, colorTarget]);
 
+  const remove = () => {
+    const obj = c()?.getActiveObject();
+    if (!obj) return;
+    c().remove(obj); c().discardActiveObject(); c().requestRenderAll(); setSelected(null); snapshot();
+  };
 
   const duplicate = async () => {
     const obj = c()?.getActiveObject();
@@ -584,14 +663,21 @@ export default function Editor() {
 
   const selectLayer = (obj) => { c().setActiveObject(obj); c().requestRenderAll(); setSelected(obj); };
 
-  const exportPng = () => {
+  // scale 1 = the page size (1080 px for Instagram); 2 / 3 = HD: texts and shapes re-drawn at that size
+  const settleZoom = () => {               // a save or download right after zooming: pictures at full quality first
+    clearTimeout(zoomSettle.current);
+    c()?.getObjects().forEach((o) => { if (o._resizeWhenSettled) { o.resizeFilter = o._resizeWhenSettled; delete o._resizeWhenSettled; } });
+  };
+  const exportPng = (scale = 1) => {
+    settleZoom();
     c().discardActiveObject(); c().requestRenderAll();
-    return c().toDataURL({ format: "png", multiplier: 1 / c().getZoom() });
+    return c().toDataURL({ format: "png", multiplier: scale / c().getZoom() });
   };
 
   const save = async (options) => {
     if (!c()) return;
     if (templateMode && !options) { setSaveDialog(true); return; }   // ask for the template's options first
+    settleZoom();
     setBusy("save"); setError("");
     try {
       const design = { ...portableSources(c().toObject(EXTRA)), size: info.size };
@@ -599,14 +685,17 @@ export default function Editor() {
         const t = await api.saveTemplateDesign(tid, design, exportPng(), options);
         setInfo((i) => ({ ...i, draft: { ...i.draft, title: t.name }, template: { ...i.template, ...options, name: t.name } }));
         setSaveDialog(false);
-      } else await api.saveDesign(id, design, exportPng());
+      } else await api.saveDesign(id, design, exportPng(2));      // 2x: the server finishes it crisp at the page size
       setSaved(true);
     } catch (e) { setError(e.message); } finally { setBusy(""); }
   };
 
-  const download = () => {
+  const [downloadMenu, setDownloadMenu] = useState(false);
+  const download = (scale = 1) => {
+    setDownloadMenu(false);
     const a = document.createElement("a");
-    a.href = exportPng(); a.download = templateMode ? `template-${tid}.png` : `post-${id}.png`; a.click();
+    const name = templateMode ? `template-${tid}` : `post-${id}`;
+    a.href = exportPng(scale); a.download = scale > 1 ? `${name}-hd${scale}x.png` : `${name}.png`; a.click();
   };
 
   // ---------------------------------------------------------------- render helpers
@@ -738,11 +827,10 @@ export default function Editor() {
         <div className="ed-section">Plain colour</div>
         <div className="ed-swatches">
           {BG_COLORS.map((col) => <button key={col} style={{ background: col }} aria-label={col} onClick={() => setBackgroundColor(col)} />)}
-
-          <button className="ed-primary ed-custom-colour" onClick={() => { c()?.discardActiveObject(); c()?.requestRenderAll(); setSelected(null); setColorTarget("background"); }}>
-            <Palette size={18} /> Custom colour or gradient
-          </button>
         </div>
+        <button className="ed-primary ed-custom-colour" onClick={() => { c()?.discardActiveObject(); c()?.requestRenderAll(); setSelected(null); setColorTarget("background"); }}>
+          <Palette size={18} /> Custom colour or gradient
+        </button>
         <p className="ed-hint">A plain colour removes the background photo.</p>
       </>
     ),
@@ -765,7 +853,7 @@ export default function Editor() {
       {/* ---------------- top bar ---------------- */}
       <header className="ed-top">
         <button className="ed-top-btn" onClick={() => navigate(templateMode ? "/templates" : "/approvals")}
-          title={templateMode ? "Back to Templates" : "Back to Approvals"}><ArrowLeft size={18} /> Back</button>
+                title={templateMode ? "Back to Templates" : "Back to Approvals"}><ArrowLeft size={18} /> Back</button>
         <div className="ed-top-group">
           <button className="ed-top-icon" title="Undo (Ctrl+Z)" onClick={() => restore(-1)} disabled={h.index <= 0}><Undo2 size={18} /></button>
           <button className="ed-top-icon" title="Redo (Ctrl+Y)" onClick={() => restore(1)} disabled={h.index >= h.stack.length - 1}><Redo2 size={18} /></button>
@@ -773,7 +861,18 @@ export default function Editor() {
         </div>
         <div className="ed-title mr">{info ? (templateMode ? `Template: ${info.draft.title}` : info.draft.title) : "Loading…"}</div>
         <div className="ed-top-group">
-          <button className="ed-top-btn" onClick={download} disabled={!info}><Download size={18} /> Download</button>
+          <span className="ed-dl">
+            <button className="ed-top-btn" onClick={() => setDownloadMenu((v) => !v)} disabled={!info} aria-expanded={downloadMenu}><Download size={18} /> Download</button>
+            {downloadMenu && info && (
+              <span className="ed-dl-menu" role="menu">
+                {[[1, "Instagram", "post size"], [2, "HD 2×", "sharp when zoomed or printed"], [3, "HD 3×", "for print and banners"]].map(([k, label, note]) => (
+                  <button key={k} role="menuitem" onClick={() => download(k)}>
+                    <b>{label}</b> <span>{info.size.width * k} × {info.size.height * k} px · {note}</span>
+                  </button>
+                ))}
+              </span>
+            )}
+          </span>
           <button className="ed-top-save" onClick={() => save()} disabled={!info || busy === "save"}><Save size={18} /> {templateMode ? "Save template" : "Save design"}</button>
         </div>
       </header>
@@ -825,8 +924,8 @@ export default function Editor() {
                       <button onClick={() => setProp("fontSize", Math.round(selected.fontSize) + 4)} aria-label="Bigger"><Plus size={14} /></button>
                     </div>
                     <button className={`ed-color${colorTarget === "fill" ? " on" : ""}`} title="Text colour"
-                      style={{ "--c": typeof selected.fill === "string" ? currentFill : "linear-gradient(90deg, #F26B0F, #FFC94A)" }}
-                      onClick={() => setColorTarget(colorTarget === "fill" ? null : "fill")}>
+                            style={{ "--c": typeof selected.fill === "string" ? currentFill : "linear-gradient(90deg, #F26B0F, #FFC94A)" }}
+                            onClick={() => setColorTarget(colorTarget === "fill" ? null : "fill")}>
                       <span className="ed-color-a" style={{ borderImage: typeof selected.fill === "string" ? "none" : "linear-gradient(90deg, #F26B0F, #FFC94A) 1" }}>A</span>
                     </button>
                     <button className={`ed-ctx${isBold(selected.fontWeight) ? " on" : ""}`} title="Bold"
@@ -839,14 +938,20 @@ export default function Editor() {
                 )}
                 {(isShape || isLine || (["rect", "circle", "ellipse", "triangle", "polygon", "path"].includes(selected.type) && selected.fill?.colorStops)) && (
                   <button className={`ed-color swatch${colorTarget ? " on" : ""}`} title="Colour"
-                    style={{ "--c": isLine ? selected.stroke : typeof selected.fill === "string" ? currentFill : "linear-gradient(135deg, #F26B0F, #FFC94A)" }}
-                    onClick={() => { const t = isLine ? "stroke" : "fill"; setColorTarget(colorTarget === t ? null : t); }} />
+                          style={{ "--c": isLine ? selected.stroke : typeof selected.fill === "string" ? currentFill : "linear-gradient(135deg, #F26B0F, #FFC94A)" }}
+                          onClick={() => { const t = isLine ? "stroke" : "fill"; setColorTarget(colorTarget === t ? null : t); }} />
                 )}
                 <span className="ed-sep" />
                 <label className="ed-opacity" title="Transparency">
                   <span>{Math.round((selected.opacity ?? 1) * 100)}%</span>
                   <input type="range" min="10" max="100" value={Math.round((selected.opacity ?? 1) * 100)} onChange={(e) => setProp("opacity", Number(e.target.value) / 100)} />
                 </label>
+                {!isText && (
+                  <>
+                    <button className={`ed-ctx${selected.flipX ? " on" : ""}`} title="Flip horizontal" onClick={() => setProp("flipX", !selected.flipX)}><FlipHorizontal2 size={16} /></button>
+                    <button className={`ed-ctx${selected.flipY ? " on" : ""}`} title="Flip vertical" onClick={() => setProp("flipY", !selected.flipY)}><FlipVertical2 size={16} /></button>
+                  </>
+                )}
                 <button className="ed-ctx" title="Bring forward" onClick={() => layer(1)}><ArrowUp size={16} /></button>
                 <button className="ed-ctx" title="Send backward" onClick={() => layer(-1)}><ArrowDown size={16} /></button>
                 <button className="ed-ctx" title="Duplicate (Ctrl+D)" onClick={duplicate}><Copy size={16} /></button>
@@ -868,39 +973,77 @@ export default function Editor() {
           {colorTarget && info && (
             <div className="ed-color-pop">
               <ColorPanel key={`${colorTarget}-${selected ? c().getObjects().indexOf(selected) : "bg"}`}
-                title={{ fill: isText ? "Text colour" : "Colour", stroke: "Line colour", background: "Background colour" }[colorTarget]}
-                value={colorValue} allowGradient={colorTarget !== "stroke"}
-                docColors={docColors()} brandColors={brandColors}
-                onChange={applyColor} onClose={() => setColorTarget(null)} />
+                          title={{ fill: isText ? "Text colour" : "Colour", stroke: "Line colour", background: "Background colour" }[colorTarget]}
+                          value={colorValue} allowGradient={colorTarget !== "stroke"}
+                          docColors={docColors()} brandColors={brandColors}
+                          onChange={applyColor} onClose={() => setColorTarget(null)} />
             </div>
           )}
           {saveDialog && info?.template && (
             <SaveTemplateDialog template={info.template} choices={info.choices} busy={busy === "save"}
-              onSave={(options) => save(options)} onClose={() => setSaveDialog(false)} />
+                                onSave={(options) => save(options)} onClose={() => setSaveDialog(false)} />
           )}
-          {templateMode && missingFonts.length > 0 && (
-            <div className="ed-notice ed-notice-bottom"><Notice kind="warning">
-              This template uses fonts the app doesn't have: <b>{missingFonts.join(", ")}</b>. Upload each font file (one you may use), or select those texts and choose another font.
-              <span className="tpl-fontfix">{missingFonts.map((fam) => (
-                <label key={fam} className="btn small">Upload {fam}
-                  <input type="file" accept=".ttf,.otf,.woff,.woff2" hidden onChange={async (e) => {
-                    const file = e.target.files?.[0]; if (!file) return;
-                    try {
-                      const weight = c().getObjects().find((o) => o.fontFamily === fam)?.fontWeight || "400";
-                      const f = await api.addFont(file, fam, String(weight));
-                      const face = new FontFace(fam, `url(/files/assets/fonts/${f.file})`, { weight: f.weight }); await face.load(); document.fonts.add(face);
-                      c().getObjects().forEach((o) => { if (o.fontFamily === fam) { o.initDimensions?.(); o.dirty = true; } });
-                      c().requestRenderAll(); setMissingFonts((m) => m.filter((x) => x !== fam));
-                    } catch (err) { setError(err.message); }
-                  }} /></label>
-              ))}</span>
-            </Notice></div>
-          )}
+          {templateMode && (missingFonts.length > 0 || Object.keys(replacedFonts).length > 0 || downloadedFonts.length > 0) && (() => {
+            const open = [...new Set([...missingFonts, ...Object.keys(replacedFonts)])];
+            const canDownload = open.filter((f) => !unavailableFonts.includes(f));     // not checked yet, or a network error
+            const commercial = open.filter((f) => unavailableFonts.includes(f));       // Canva / commercial: only an upload helps
+            const using = (f) => replacedFonts[f] ? ` (using ${replacedFonts[f]})` : "";
+            const uploadButton = (fam) => (
+              <label className="btn small">Upload file
+                <input type="file" accept=".ttf,.otf,.woff,.woff2" hidden onChange={async (e) => {
+                  const file = e.target.files?.[0]; if (!file) return;
+                  try {
+                    const weight = c().getObjects().find((o) => o.fontFamily === fam || o.sourceFamily === fam)?.fontWeight || "400";
+                    const f = await api.addFont(file, fam, String(weight));
+                    await applyFont(fam, [f]);
+                    setUnavailableFonts((u) => u.filter((x) => x !== fam));
+                  } catch (err) { setError(err.message); }
+                }} /></label>
+            );
+            return (
+              <div className="ed-notice ed-notice-bottom"><Notice kind={canDownload.length ? "warning" : open.length ? "info" : "success"}>
+                {downloadedFonts.length > 0 && <div>Downloaded from Google Fonts (free, open licence): <b>{downloadedFonts.join(", ")}</b>.</div>}
+                {commercial.length > 0 && (
+                  <div>
+                    Canva / commercial fonts (not downloadable), so similar open fonts are used:{" "}
+                    <b>{commercial.map((f) => `${f}${replacedFonts[f] ? ` → ${replacedFonts[f]}` : ""}`).join(", ")}</b>.
+                    {" "}For the exact look, use Google fonts in Canva, or upload the font files if you have a licence.
+                  </div>
+                )}
+                {canDownload.length > 0 && (
+                  <div>
+                    Fonts not in the app yet: <b>{canDownload.map((f) => f + using(f)).join(", ")}</b>. Try <b>Download automatically</b> (Google Fonts).
+                    {canDownload.length > 1 && (
+                      <span className="tpl-fontfix">
+                        <button className="btn small primary" disabled={!!fontBusy} onClick={() => downloadAllFonts(canDownload)}>
+                          {fontBusy === "*" ? "Downloading…" : "Download all automatically"}
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                )}
+                {open.map((fam) => (
+                  <span key={fam} className="tpl-fontfix ed-fontrow">
+                    <b>{fam}</b>{commercial.includes(fam) && <span className="ed-fontmeta">{replacedFonts[fam] ? `using ${replacedFonts[fam]}` : "commercial font"}</span>}
+                    {!commercial.includes(fam) && (
+                      <button className="btn small" disabled={!!fontBusy}
+                              onClick={async () => { setFontBusy(fam); await downloadFont(fam); setFontBusy(""); }}>
+                        {fontBusy === fam ? "Downloading…" : "Download automatically"}
+                      </button>
+                    )}
+                    {uploadButton(fam)}
+                    {fontNotes[fam] && <span className="ed-fontnote">{fontNotes[fam]}</span>}
+                  </span>
+                ))}
+                {!canDownload.length && <button className="btn small ed-fontok" onClick={() => { setDownloadedFonts([]); setReplacedFonts({}); setMissingFonts([]); }}>OK</button>}
+              </Notice></div>
+            );
+          })()}
 
           <footer className="ed-bottom">
             <span className="ed-hint">Double-click text to type · Delete removes · Arrows nudge · Alt-drag moves without snapping</span>
             <button className={`ed-guides${guides ? " on" : ""}`} aria-pressed={guides} title="Alignment guides while dragging"
-              onClick={() => { guidesOn.current = !guidesOn.current; setGuides(guidesOn.current); }}>
+                    onClick={() => { guidesOn.current = !guidesOn.current; setGuides(guidesOn.current); }}>
               <Magnet size={15} /> Guides {guides ? "on" : "off"}
             </button>
             <div className="ed-zoom">

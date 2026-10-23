@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from PIL import Image
 from pydantic import BaseModel
 
@@ -65,6 +66,8 @@ FONTS = [
     {"family": "Pacifico", "file": "Pacifico-Regular.ttf", "weight": "400", "group": "english"},
     {"family": "Dancing Script", "file": "DancingScript-Variable.ttf", "weight": "400 700", "group": "english"},
     {"family": "Great Vibes", "file": "GreatVibes-Regular.ttf", "weight": "400", "group": "english"},
+    {"family": "Cinzel", "file": "Cinzel-Variable.ttf", "weight": "400 900", "group": "english"},
+    {"family": "Open Sans", "file": "OpenSans-Variable.ttf", "weight": "300 800", "group": "english"},
 ]
 
 
@@ -193,7 +196,33 @@ def save_design(draft_id: str, body: DesignIn):
     folder = OUTPUT_DIR / "posters"
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"edited_{draft_id}_{uuid.uuid4().hex[:6]}.png"
-    path.write_bytes(png)
+    from design.finish import finish
+    size = body.design.get("size") or {"width": SIZES["feed"][0], "height": SIZES["feed"][1]}
+    finish(png, (round(size["width"]), round(size["height"])), path)      # sent at 2x -> crisp at the page size
     images = [str(path)] + list(draft["images"][1:])        # the edited design replaces the first image
     design = {**(run(drafts.get_design, draft_id) or {}), "feed": body.design}
     return draft_out(run(drafts.save_design, draft_id, design, images))
+
+@router.get("/{draft_id}/hd")
+def download_hd(draft_id: str, scale: int = 2, image: int = 0):
+    """HD version (2x / 3x) of a post image: re-drawn from its saved design, or re-rendered from its HTML page."""
+    from design import hd_export
+    if scale not in (2, 3):
+        raise HTTPException(400, "Scale must be 2 or 3.")
+    draft = _get(draft_id)
+    if image < 0 or image >= len(draft["images"]):
+        raise HTTPException(404, "That image doesn't exist.")
+    folder = OUTPUT_DIR / "posters" / "hd"
+    folder.mkdir(parents=True, exist_ok=True)
+    out = folder / f"{draft_id}_{image}_x{scale}_v{draft['version']}.png"
+    if not out.exists():
+        design = (run(drafts.get_design, draft_id) or {}).get("feed") if image == 0 else None
+        html = hd_export.html_page_for(draft["images"][image])
+        if design and design.get("objects"):
+            run(hd_export.from_design, design, scale, out)
+        elif html:
+            w, h = _image_size(draft["images"][image])
+            run(hd_export.from_html, html, w, h, scale, out)
+        else:
+            raise HTTPException(404, "An HD version isn't available for this image.")
+    return FileResponse(out, media_type="image/png", filename=f"post-{draft_id}-{image + 1}-hd{scale}x.png")

@@ -158,14 +158,29 @@ def make_post(ptype, form, chosen, photo_path="", template_id=""):
     if template_id:                                        # the user picked a saved template
         from posts import template_post
         lang = current()["language"]
-        first = next((line.strip() for key in ("details", "offer", "about", "note", "title")
-                      for line in str(form.get(key) or "").splitlines() if line.strip()), "")
-        small = kind_label(form.get("kind"), lang) or occasion_label(form.get("occasion"), lang) or form.get("product") or ""
+        first_line = lambda key: next((x.strip() for x in str(form.get(key) or "").splitlines() if x.strip()), "")
+        if ptype == "offer":               # small line = the offer itself; closing = note, else price + valid till
+            small = form.get("offer", "")
+            valid = text_in(POSTER_TEXT["offer_until"], lang).format(date=form["valid_till"]) if form.get("valid_till") else ""
+            end = first_line("note") or "  ·  ".join(x for x in (form.get("price", ""), valid) if x)
+        elif ptype == "achievement":       # achievement title; closing = the first number
+            small = form.get("title", "")
+            stat = (form.get("stats") or [{}])[0]
+            end = f"{stat.get('value', '')} {stat.get('label', '')}".strip() or first_line("details")
+        elif ptype == "spotlight":         # occasion or role; closing = first line about the person
+            small = occasion_label(form.get("occasion"), lang) or form.get("role", "")
+            end = first_line("about")
+        else:                              # announcement: the kind badge; closing = first detail (or when / place)
+            small = kind_label(form.get("kind"), lang)
+            end = first_line("details") or "  ·  ".join(x for x in (form.get("when", ""), form.get("place", "")) if x)
         return template_post.make_post(
-            template_id, {"line_small": md(small), "line_big": headline, "line_end": md(first)},
+            template_id, {"line_small": md(small), "line_big": headline, "line_end": md(end)},
             title=f"{TYPES[ptype]['label']}: {headline}", caption=caption, hashtags=final_hashtags(chosen.get("hashtags")),
             details={"post_type": ptype, "form": form, "photo": photo_path, "headline": headline},
-            post_type="custom", photo=photo_path)
+            post_type="custom", photo=photo_path,
+            extra={"phone": md(form.get("contact") or "")},          # the form's own contact number comes first
+            ai={"facts": _facts(ptype, form), "headline": headline, "kind": TYPES[ptype]["label"].lower(),
+                "language": language(lang)["name"]})                  # AI decides which template texts to set / remove / add
     poster = {k: (md(v) if isinstance(v, str) else v) for k, v in form.items()}
     if ptype == "achievement":
         poster["stats"] = [
