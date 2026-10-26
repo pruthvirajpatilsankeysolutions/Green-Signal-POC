@@ -8,10 +8,12 @@ layer ids must exist, texts must fit their space, and no number may appear that 
 Client details (name, phone, handle, address) are filled by the app, never by the AI.
 """
 import json
+import logging
 import re
 
 from ai.claude import ask_json
 
+log = logging.getLogger("uvicorn.error")         # shows in the backend terminal
 CLIENT_SLOTS = {"client_name", "phone", "contact", "address"}
 MAX_ADDS = 2
 _DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
@@ -187,7 +189,11 @@ Return JSON: {{"set": [{{"id": 3, "text": "..."}}], "remove": [5], "add": [{{"li
         answer = ask_json(system, user, max_tokens=1500)
     except Exception as e:                       # no AI key / AI busy: the normal filling is used
         return None, [f"AI layout not used ({type(e).__name__}); standard filling used."]
+    # print the AI's raw plan and what the checks kept, so a wrong post can be traced back to the plan
+    log.info("AI layout plan - layers sent: %s", json.dumps(layers, ensure_ascii=False))
+    log.info("AI layout plan - AI answer: %s", json.dumps(answer, ensure_ascii=False))
     edits, notes = check(answer, layers, [facts, headline, caption], elements, fonts)
+    log.info("AI layout plan - applied: %s | notes: %s", json.dumps(edits, ensure_ascii=False), notes)
     if not (edits["set"] or edits["remove"] or edits["add"] or edits["move"] or edits["style"]):
         return None, notes + ["AI layout plan was empty or invalid; standard filling used."]
     return edits, notes

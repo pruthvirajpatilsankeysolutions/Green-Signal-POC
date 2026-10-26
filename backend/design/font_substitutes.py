@@ -7,7 +7,8 @@ import re
 
 # common Canva / designer fonts -> the closest font the app ships (all open-licence)
 KNOWN = {
-    "tan meringue": "Playfair Display", "hello paris": "Playfair Display", "kulachat serif": "Playfair Display", "the seasons": "Playfair Display",
+    "itc benguiat": "Playfair Display", "benguiat": "Playfair Display", "cooper": "Playfair Display", "recoleta": "Playfair Display",
+    "itc souvenir": "Playfair Display", "souvenir": "Playfair Display", "tan meringue": "Playfair Display", "hello paris": "Playfair Display", "kulachat serif": "Playfair Display", "the seasons": "Playfair Display",
     "lustria": "Playfair Display", "imbue": "Playfair Display", "bodoni": "Playfair Display",
     "didot": "Playfair Display", "garamond": "Playfair Display", "cormorant": "Playfair Display", "dm serif": "Playfair Display",
     "libre baskerville": "Playfair Display", "lora": "Playfair Display", "fraunces": "Playfair Display",

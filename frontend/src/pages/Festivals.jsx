@@ -11,15 +11,8 @@ import CreatedNotice from "../components/CreatedNotice.jsx";
 import MonthPlanTable from "../components/MonthPlanTable.jsx";
 import Notice from "../components/Notice.jsx";
 import PlanPanel from "../components/PlanPanel.jsx";
-import Segmented from "../components/Segmented.jsx";
 import TemplatePicker from "../components/TemplatePicker.jsx";
 
-const LAYOUTS = [
-  { value: "text_right", label: "Text right" },
-  { value: "text_left", label: "Text left" },
-  { value: "text_center", label: "Centre (light)" },
-  { value: "text_corners", label: "Corners (light)" },
-];
 const TONE_NAMES = { greeting: "Festival", tribute: "Jayanti", solemn: "Punyatithi" };
 const SOURCE_NAMES = { ready: "Ready", uploaded: "Uploaded", ai: "AI" };
 const STATUS_NAMES = { approved: "Approved", waiting: "Waiting for approval", todo: "To do" };
@@ -340,7 +333,6 @@ export default function Festivals() {
               </div>
               <button className="icon-tool" aria-label="Close" onClick={() => go({ id: null })}><X size={18} /></button>
             </div>
-            {fest.notes && <Notice kind="warning">{fest.notes}</Notice>}
             <FestivalEditor key={fest.id} fest={fest} imageAi={status?.image_ai} onCreated={() => { refresh(); loadPosts(); }} />
           </aside>
         </div>
@@ -414,7 +406,7 @@ function Agenda({ items, stateOf, posts, openId, onOpen }) {
 
 function FestivalEditor({ fest, imageAi, onCreated }) {
   const tribute = fest.tone === "tribute" || fest.tone === "solemn";
-  const [layout, setLayout] = useState(tribute ? "text_left" : fest.default_layout);
+  const layout = tribute ? "text_left" : fest.default_layout;       // only used by posters without a template
   const [backgrounds, setBackgrounds] = useState([]);
   const [chosen, setChosen] = useState(null);
   const [aiLabel, setAiLabel] = useState(false);
@@ -452,89 +444,89 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
   const [templateId, setTemplateId] = useState("");
   const [frame, setFrame] = useState("none");
   const [templateInfo, setTemplateInfo] = useState(null);
-  const needsPicture = !templateId || templateInfo?.slots?.includes("photo");
+  const needsPicture = !!templateId && !!templateInfo?.slots?.includes("photo");
   const onCreate = () => act("create", async () => {
-    const d = await api.createFestivalPost(fest.id, { background: chosen?.path || "", layout, ai_generated: aiLabel, use_plan: true, template_id: templateId, frame: templateId ? frame : "none" });
+    const d = await api.createFestivalPost(fest.id, { background: chosen?.path || "", layout, ai_generated: aiLabel, use_plan: true, template_id: templateId, frame });
     setDraft(d);
     setPlanKey((k) => k + 1);                       // the plan was used; the next post starts fresh
     onCreated();
   });
 
   return (
-    <section className="panel editor">
-      <div className="editor-head">
-        <div>
-          <h2 className="mr">{fest.occasion_mr}</h2>
-          <p className="muted">{fest.occasion_en}, {fest.date}</p>
-        </div>
-        <span className={`tag tone-${fest.tone}`}>{TONE_NAMES[fest.tone]}</span>
-      </div>
-      {fest.notes && <Notice kind="warning">{fest.notes}</Notice>}
+    <div className="fe">
+      <section className="fe-step" aria-labelledby="fe-words">
+        <header className="fe-step-head">
+          <span className="fe-num">1</span><h3 id="fe-words">Words</h3>
+          {plan && <span className={`status-chip ${plan.status === "approved" ? "st-approved" : "st-waiting"}`}>{plan.status === "approved" ? "Approved" : "Not approved yet"}</span>}
+        </header>
+        <PlanPanel key={planKey} fest={fest} onPlan={setPlan} />
+      </section>
 
-      <div className="step-title"><span>1</span> Words</div>
-      <PlanPanel key={planKey} fest={fest} onPlan={setPlan} />
+      <section className="fe-step" aria-labelledby="fe-design">
+        <header className="fe-step-head"><span className="fe-num">2</span><h3 id="fe-design">Design</h3></header>
+        <TemplatePicker occasion={fest.id} occasionLabel={fest.occasion_en} postType="festival" value={templateId} allowStandard={false}
+                        onChange={(id, t) => { setTemplateId(id); setTemplateInfo(t || null); }} frame={frame} onFrameChange={setFrame} />
 
-      <div className="step-title"><span>2</span> Picture and layout</div>
-      <div className="poster-text" aria-label="Text on the poster">
-        <span className="pt-small mr">{posterLines[0]}</span>
-        <span className="pt-big mr">{posterLines[1]}</span>
-        <span className="pt-end mr">{posterLines[2]}</span>
-      </div>
-
-      <div className="field">
-        <span className="field-label">Layout</span>
-        <Segmented label="Layout" options={LAYOUTS} value={layout} onChange={setLayout} disabled={tribute} />
-        {tribute && <span className="hint">Jayanti and punyatithi always use the tribute design: portrait right, text left.</span>}
-      </div>
-
-      <div className="field">
-        <div className="field-row">
-          <span className="field-label">Background picture</span>
-          <div className="actions">
-            <button className="btn ghost" onClick={() => upload.current?.click()} disabled={!!busy}>
-              <Upload size={16} aria-hidden="true" /> {busy === "upload" ? "Uploading…" : "Upload"}
-            </button>
-            <button className="btn ghost" onClick={onGenerate} disabled={!!busy || !imageAi}
-                    title={imageAi ? "" : "Add OPENAI_API_KEY to .env to use this"}>
-              <Sparkles size={16} aria-hidden="true" /> {busy === "generate" ? "Painting 4 pictures…" : "Make 4 with AI"}
-            </button>
-          </div>
-          <input ref={upload} type="file" accept="image/png,image/jpeg,image/webp" hidden
-                 onChange={(e) => { if (e.target.files[0]) onUpload(e.target.files[0]); e.target.value = ""; }} />
+        <div className="fe-words" aria-label="Words on the poster">
+          <span className="fe-label">Words on the poster</span>
+          <span className="pt-small mr">{posterLines[0]}</span>
+          <span className="pt-big mr">{posterLines[1]}</span>
+          <span className="pt-end mr">{posterLines[2]}</span>
         </div>
 
-        {backgrounds.length ? (
-          <div className="bg-grid">
-            {backgrounds.map((bg) => (
-              <button key={bg.path} className={`bg${chosen?.path === bg.path ? " on" : ""}`} onClick={() => choose(bg)}
-                      aria-pressed={chosen?.path === bg.path}>
-                <img src={bg.url} alt="" />
-                <span className="bg-source">{SOURCE_NAMES[bg.source]}</span>
-                {chosen?.path === bg.path && <span className="bg-check"><Check size={14} /></span>}
-              </button>
-            ))}
+        {needsPicture && (
+          <div className="fe-field">
+            <div className="field-row">
+              <span className="fe-label">Photo for this template</span>
+              <div className="actions">
+                <button className="btn ghost small" onClick={() => upload.current?.click()} disabled={!!busy}>
+                  <Upload size={15} aria-hidden="true" /> {busy === "upload" ? "Uploading…" : "Upload"}
+                </button>
+                <button className="btn ghost small" onClick={onGenerate} disabled={!!busy || !imageAi}
+                        title={imageAi ? "" : "Add OPENAI_API_KEY to .env to use this"}>
+                  <Sparkles size={15} aria-hidden="true" /> {busy === "generate" ? "Painting 4 pictures…" : "Make 4 with AI"}
+                </button>
+              </div>
+              <input ref={upload} type="file" accept="image/png,image/jpeg,image/webp" hidden
+                     onChange={(e) => { if (e.target.files[0]) onUpload(e.target.files[0]); e.target.value = ""; }} />
+            </div>
+            {backgrounds.length ? (
+              <div className="bg-grid">
+                {backgrounds.map((bg) => (
+                  <button key={bg.path} className={`bg${chosen?.path === bg.path ? " on" : ""}`} onClick={() => choose(bg)}
+                          aria-pressed={chosen?.path === bg.path}>
+                    <img src={bg.url} alt="" />
+                    <span className="bg-source">{SOURCE_NAMES[bg.source]}</span>
+                    {chosen?.path === bg.path && <span className="bg-check"><Check size={14} /></span>}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="empty">No picture yet. Upload one, or save a file named {fest.id}.png in assets/backgrounds.</p>
+            )}
+            <label className="check">
+              <input type="checkbox" checked={aiLabel} onChange={(e) => setAiLabel(e.target.checked)} />
+              This picture was made by AI
+            </label>
           </div>
-        ) : (
-          <p className="empty">No picture yet. Upload one, or save a file named {fest.id}.png in assets/backgrounds.</p>
         )}
-      </div>
+      </section>
 
-      <label className="check">
-        <input type="checkbox" checked={aiLabel} onChange={(e) => setAiLabel(e.target.checked)} />
-        This picture was made by AI
-      </label>
-
-      <div className="step-title"><span>3</span> Create</div>
-      <TemplatePicker occasion={fest.id} postType="festival" value={templateId} onChange={(id, t) => { setTemplateId(id); setTemplateInfo(t || null); }}
-                      frame={frame} onFrameChange={setFrame} />
-      {templateId && !needsPicture && <p className="hint">This template has its own picture, so no background is needed.</p>}
-      {plan && plan.status !== "approved" && <p className="hint">The words aren't approved yet. You can still create the poster with the current picks.</p>}
-      <Notice kind="error">{error}</Notice>
-      <div className="actions end">
-        <button className="btn primary" onClick={onCreate} disabled={(needsPicture && !chosen) || !!busy}>
-          {busy === "create" ? "Making the poster…" : "Create poster"}
-        </button>
-      </div>
+      <section className="fe-step" aria-labelledby="fe-create">
+        <header className="fe-step-head"><span className="fe-num">3</span><h3 id="fe-create">Create</h3></header>
+        <div className="fe-create">
+          <div className="fe-summary">
+            <span className="fe-pill"><span>Words</span>{plan ? (plan.status === "approved" ? "Approved" : "Not approved yet") : "Standard"}</span>
+            <span className="fe-pill"><span>Design</span>{templateId ? (templateInfo?.name || "Template") : "None chosen"}</span>
+          </div>
+          <button className="btn primary" onClick={onCreate} disabled={!templateId || (needsPicture && !chosen) || !!busy}>
+            {busy === "create" ? "Making the poster…" : "Create poster"}
+          </button>
+        </div>
+        {!templateId && <p className="hint">Choose a template to create the poster.</p>}
+        {needsPicture && !chosen && <p className="hint">This template has a photo spot: choose a photo above.</p>}
+        <Notice kind="error">{error}</Notice>
+      </section>
 
       {draft && (
         <div className="result">
@@ -543,6 +535,6 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
           {draft.warnings.map((w) => <Notice key={w} kind="warning">{w}</Notice>)}
         </div>
       )}
-    </section>
+    </div>
   );
 }

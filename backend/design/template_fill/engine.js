@@ -6,7 +6,7 @@ fabric.FabricObject.ownDefaults.originX = "left";
 fabric.FabricObject.ownDefaults.originY = "top";
 fabric.FabricImage.ownDefaults.objectCaching = false;     // pictures: no low-quality cached copy
 fabric.Textbox.ownDefaults.objectCaching = false;         // texts: drawn directly (sharper small text)
-const KEEP = ["name", "frameLayer", "slot", "isBackground", "selectable", "evented", "minSize", "maxLines", "sourceFont", "vAlign", "boxTop", "boxHeight",
+const KEEP = ["name", "frameLayer", "textTransform", "flowAfter", "slot", "isBackground", "selectable", "evented", "minSize", "maxLines", "sourceFont", "vAlign", "boxTop", "boxHeight",
               "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls"];
 const DEVANAGARI = /[\u0900-\u097F]/;
 // fonts that have Devanagari letters; others are swapped for Marathi / Hindi text
@@ -48,6 +48,23 @@ async function replacePicture(c, o, url, mode) {
   img.set({ name: o.name, slot: o.slot, angle: o.angle || 0 });
   c.insertAt(c.getObjects().indexOf(o), img);
   c.remove(o);
+}
+
+// Styled ranges from the PPTX ({line, start, end} in UTF-16 units) -> Fabric styles ({line: {grapheme: style}}),
+// using Fabric's own grapheme split, so Devanagari syllables are counted the way Fabric draws them.
+function applyRunStyles(o) {
+  if (!o.runStyles || !o.runStyles.length) return;
+  const lines = String(o.text).split("\n"), styles = {};
+  for (const rs of o.runStyles) {
+    const line = lines[rs.line];
+    if (line == null) continue;
+    let at = 0;
+    fabric.util.string.graphemeSplit(line).forEach((g, gi) => {
+      if (at >= rs.start && at < rs.end) (styles[rs.line] = styles[rs.line] || {})[gi] = { ...rs.style };
+      at += g.length;
+    });
+  }
+  o.set({ styles }); o.runStyles = null;
 }
 
 // The client frame (politicians): the design is scaled into the space above a banner (logo + name +
@@ -166,8 +183,23 @@ window.fillTemplate = async (design, slots, pictures, scale = 1, edits = null, f
     }
     c.remove(o);
   };
+  c.getObjects().forEach((o) => { if (o.type.toLowerCase() === "textbox") applyRunStyles(o); });
+  // The designer's text boxes (as saved). Fabric widens a box to its longest word the moment it loads, always to the
+  // right, so centred or right-aligned text drifts off its place: put every such box back on its centre / right edge.
+  const designBox = new Map();
+  c.getObjects().forEach((o, i) => {
+    const j = design.objects[i];
+    if (!j || o.type.toLowerCase() !== "textbox" || (j.originX || "left") !== "left" || !(j.width > 0)) return;
+    designBox.set(o, { left: j.left, width: j.width });
+    const grow = o.width - j.width;
+    if (grow > 0.5) {
+      const left = o.textAlign === "center" ? j.left - grow / 2 : o.textAlign === "right" ? j.left - grow : j.left;
+      o.set({ left }); o.setCoords();
+    }
+  });
   // the AI plan: texts to set, layers to remove (each layer by its position in the template)
   const layer = c.getObjects().slice();
+  const rect0 = new Map(layer.filter((o) => o.type.toLowerCase() === "textbox").map((o) => [o, o.getBoundingRect()]));
   if (edits) {
     for (const [i, text] of Object.entries(edits.set || {})) { const o = layer[+i]; if (o && o.type.toLowerCase() === "textbox") o.__planText = String(text); }
     for (const [i, st] of Object.entries(edits.style || {})) { const o = layer[+i]; if (o && o.type.toLowerCase() === "textbox") o.__style = st; }
@@ -184,13 +216,18 @@ window.fillTemplate = async (design, slots, pictures, scale = 1, edits = null, f
       if (value === "") { removeWithBackground(o); continue; }     // nothing to show: the line (and its pill) disappears
       // "TOLL-FREE: [NUMBER]" keeps its label; other slots take the whole text
       const placeholder = /\[[^\]]+\]/;
-      const text = o.slot === "phone" && placeholder.test(o.text)
+      let text = o.slot === "phone" && placeholder.test(o.text)
         ? o.text.replace(placeholder, value).replace(/\s*\[[^\]]+\]/g, "") : value;
       o.initDimensions();
+      const box0 = designBox.get(o) || { left: o.left, width: o.width };      // where the designer put this text box
       const used = Math.max(widest(o), o.width * 0.55);               // the template's own text width (before filling)
       const usedH = o.height;                                          // ... and height: filled text mustn't push into what's below
       const origLines = o._textLines.length;
+      // the template's "uppercase" effect applies to new words too; inline styles belong to the old words
+      if (o.textTransform === "uppercase") text = text.toUpperCase();
+      if (text !== o.text) o.set({ styles: {} });
       o.set({ text });
+      o.__filled = true;
       // AI style: font, weight, size (a larger size may widen the box around its centre; checked after placing)
       let scale = 1;
       if (o.__style) {
@@ -221,6 +258,15 @@ window.fillTemplate = async (design, slots, pictures, scale = 1, edits = null, f
       const maxH = usedH * (o.slot === "line_end" ? 1.35 : 1.15) * Math.max(1, scale);
       fit(o, maxLines, switched, used * 1.08 * Math.max(1, scale), maxH, origLines);
       o.initDimensions();
+      // Fabric widens a box to fit the longest word, and keeps that width after the font has shrunk, so centred text
+      // drifted off its place (a long single word in a narrow title box). Put the box back where the designer
+      // had it: the original width when the text fits, else just wide enough, always on the original centre line.
+      {
+        const w = Math.max(box0.width, Math.ceil(widest(o)) + 2);
+        const left = o.textAlign === "center" ? box0.left + box0.width / 2 - w / 2
+                   : o.textAlign === "right" ? box0.left + box0.width - w : box0.left;
+        if (Math.abs(w - o.width) > 0.5 || Math.abs(left - o.left) > 0.5) { o.set({ width: w, left }); o.initDimensions(); o.setCoords(); }
+      }
       if (o._textLines.length > maxLines || widest(o) > Math.min(o.width, used * 1.08 * Math.max(1, scale)) + 1 || o.height > maxH + 1) warnings.push(`"${o.name}" doesn't fit its box even at the smallest size`);
     }
     if (kind === "image" && o.slot && pictures[o.slot]) await replacePicture(c, o, pictures[o.slot], o.slot === "photo" ? "cover" : "contain");
@@ -253,6 +299,47 @@ window.fillTemplate = async (design, slots, pictures, scale = 1, edits = null, f
   for (const o of c.getObjects()) {
     if (o.type.toLowerCase() !== "textbox" || o.boxTop == null || o.boxHeight == null) continue;
     positionText(o);
+  }
+  // parts of a split text box stay below the part above them, however many lines that one wraps to
+  for (const o of c.getObjects()) {
+    if (!o.flowAfter || o.type.toLowerCase() !== "textbox") continue;
+    const prev = c.getObjects().find((x) => x.name === o.flowAfter && x.type.toLowerCase() === "textbox");
+    if (!prev) continue;
+    prev.initDimensions(); o.initDimensions();
+    const pr = prev.getBoundingRect(), need = pr.top + pr.height + o.fontSize * 0.15, r = o.getBoundingRect();
+    if (r.top < need) { o.set({ top: o.top + (need - r.top) }); o.setCoords(); }
+  }
+  // Filled text must not run into the text below it (e.g. a two-line message where the template had one word).
+  // Only overlaps the template did not have are fixed: the text moves up into free space (down to a small top
+  // margin), and if there isn't enough room it shrinks a little (to 70% at most).
+  {
+    const texts = c.getObjects().filter((o) => o.type.toLowerCase() === "textbox" && o.visible !== false && !o.frameLayer)
+      .sort((a, b) => a.top - b.top);
+    for (let i = 0; i < texts.length; i++) {
+      const a = texts[i];
+      if (!a.__filled) continue;
+      for (let j = 0; j < texts.length; j++) {
+        const b = texts[j];
+        if (b === a) continue;
+        a.initDimensions(); b.initDimensions();
+        const ra = a.getBoundingRect(), rb = b.getBoundingRect();
+        const sideBySide = ra.left >= rb.left + rb.width || ra.left + ra.width <= rb.left;
+        if (sideBySide || ra.top >= rb.top) continue;                       // only a text that sits above b
+        const now = ra.top + ra.height - rb.top;                             // how far a's bottom goes into b
+        const was = (() => { const x = rect0.get(a), y = rect0.get(b); return x && y ? x.top + x.height - y.top : -Infinity; })();
+        const excess = now - Math.max(0, was);
+        if (excess <= 1) continue;
+        const need = excess + 6, room = Math.max(0, ra.top - 10);
+        const move = Math.min(need, room);
+        if (move > 0) { a.set({ top: a.top - move }); a.setCoords(); }
+        if (need - move > 1) {                                              // not enough room above: shrink around the top edge
+          const k = Math.max(0.7, (ra.height - (need - move)) / ra.height);
+          const keepTop = a.top;
+          a.set({ fontSize: a.fontSize * k }); a.initDimensions(); a.set({ top: keepTop }); a.setCoords();
+          warnings.push(`"${String(a.text).slice(0, 30)}" was made smaller to stay clear of the text below it`);
+        }
+      }
+    }
   }
   // AI plan: extra lines styled like an existing text, placed just below a text when there is free space
   // Is a spot really free? Compare the page with everything vs. only the background, pixel by pixel:
@@ -370,6 +457,7 @@ window.renderDesign = async (design, multiplier) => {
   c.on("before:render", ({ ctx }) => { if (ctx) ctx.imageSmoothingQuality = "high"; });
   await c.loadFromJSON(design);
   if (!c.backgroundColor) c.backgroundColor = "#ffffff";
+  c.getObjects().forEach((o) => { if (o.type.toLowerCase() === "textbox") applyRunStyles(o); });
   c.getObjects().forEach((o) => { if (o.type.toLowerCase() === "image" && !o.resizeFilter) o.resizeFilter = new fabric.filters.Resize({ resizeType: "sliceHack" }); });
   c.renderAll();
   return c.toDataURL({ format: "png", multiplier });

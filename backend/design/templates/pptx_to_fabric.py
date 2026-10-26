@@ -253,6 +253,80 @@ def _flips(shape):
     return {"flipX": yes("flipH"), "flipY": yes("flipV")}
 
 
+def _run_text(r, rpr):
+    """A run's text as shown: Canva's "uppercase" effect (cap="all") is applied to the letters."""
+    return r.text.upper() if rpr is not None and rpr.get("cap") == "all" else r.text
+
+
+def _para_text(p):
+    """A paragraph's text as shown, with its bullet (if any) in front."""
+    ppr = p._p.find(qn("a:pPr"))
+    bu = ppr.find(qn("a:buChar")) if ppr is not None else None
+    text = "".join(_run_text(r, r._r.find(qn("a:rPr"))) for r in p.runs)
+    return (bu.get("char", "•") + " " + text) if bu is not None and text.strip() else text
+
+
+def _run_styles(paras, base, size_px_base, scale):
+    """Styled ranges for runs that differ from the layer's own style (another colour, weight, font, size, or
+    superscript / subscript): [{line, start, end, style}], positions in UTF-16 units of each paragraph's text.
+    The engine / editor turn them into Fabric styles with Fabric's own grapheme counting (a Devanagari syllable
+    like "त्त" is one position for Fabric, several characters for Python)."""
+    u16 = lambda t: len(t.encode("utf-16-le")) // 2
+    styles = []
+    for li, p in enumerate(paras):
+        ppr = p._p.find(qn("a:pPr"))
+        ci = len((ppr.find(qn("a:buChar")).get("char", "•") + " ").encode("utf-16-le")) // 2 \
+            if (ppr is not None and ppr.find(qn("a:buChar")) is not None and "".join(r.text for r in p.runs).strip()) else 0
+        for r in p.runs:
+            rpr = r._r.find(qn("a:rPr"))
+            st = {}
+            fill = _gradient(rpr) or _colour(rpr)[0]
+            if fill and fill != base["fill"]:
+                st["fill"] = fill
+            fam, wt = split_font(r.font.name or base["sourceFont"], bool(r.font.bold))
+            if r.font.name and fam != base["fontFamily"]:
+                st["fontFamily"] = fam
+            if str(wt) != str(base["fontWeight"]):
+                st["fontWeight"] = wt
+            size = (r.font.size.pt / 0.75 * scale) if r.font.size else size_px_base
+            shift = int(rpr.get("baseline", 0)) / 100000 if rpr is not None else 0
+            if shift:                                   # superscript (+) / subscript (-): smaller and raised / lowered
+                size = size * 0.62
+                st["deltaY"] = round(-shift * size_px_base * 1.1, 2)
+            if abs(size - size_px_base) > 0.5:
+                st["fontSize"] = round(size, 1)
+            text = _run_text(r, rpr)
+            if st and text:
+                styles.append({"line": li, "start": ci, "end": ci + u16(text), "style": st})
+            ci += u16(text)
+    return styles
+
+
+def _text_effects(rpr, scale):
+    """Outline (stroke) and shadow of the text, from the first run."""
+    out = {}
+    ln = rpr.find(qn("a:ln")) if rpr is not None else None
+    if ln is not None and ln.find(qn("a:noFill")) is None:
+        col, _a = _colour(ln)
+        if col:
+            out.update(stroke=col, strokeWidth=round(int(ln.get("w", 12700)) / PX * scale, 2), paintFirst="stroke")
+    eff = rpr.find(qn("a:effectLst")) if rpr is not None else None
+    sh = eff.find(qn("a:outerShdw")) if eff is not None else None
+    if sh is not None:
+        import math
+        col, alpha = _colour(sh) if sh.find(qn("a:solidFill")) is not None else (None, 1)
+        clr = sh.find(qn("a:srgbClr"))
+        if clr is not None:
+            a = clr.find(qn("a:alpha")); alpha = int(a.get("val")) / 100000 if a is not None else 1
+            col = "#" + clr.get("val")
+        if col:
+            dist, ang = int(sh.get("dist", 0)) / PX * scale, math.radians(int(sh.get("dir", 0)) / 60000)
+            r_, g_, b_ = int(col[1:3], 16), int(col[3:5], 16), int(col[5:7], 16)
+            out["shadow"] = {"color": f"rgba({r_},{g_},{b_},{round(alpha, 2)})", "blur": round(int(sh.get("blurRad", 0)) / PX * scale, 1),
+                             "offsetX": round(dist * math.cos(ang), 1), "offsetY": round(dist * math.sin(ang), 1)}
+    return out
+
+
 def _text(shape, tf_map=(0, 0, 1, 1), paras=None, offset=0.0, block=None, part=""):
     """One text layer: the whole text box, or (paras) a group of its paragraphs that share a style, placed
     `offset` px below the box's first line; `block` is the height of all the box's lines (for centring)."""
@@ -260,7 +334,7 @@ def _text(shape, tf_map=(0, 0, 1, 1), paras=None, offset=0.0, block=None, part="
     paras = paras or list(tf.paragraphs)
     para = paras[0]
     runs = [r for p in paras for r in p.runs]
-    text = "\n".join("".join(r.text for r in p.runs) for p in paras).strip("\n")
+    text = "\n".join(_para_text(p) for p in paras).strip("\n")
     r0 = runs[0] if runs else None
     size_pt = r0.font.size.pt if r0 is not None and r0.font.size else 18
     family, weight = split_font(r0.font.name if r0 is not None else None, bool(r0 is not None and r0.font.bold))
@@ -291,14 +365,24 @@ def _text(shape, tf_map=(0, 0, 1, 1), paras=None, offset=0.0, block=None, part="
     if block is not None:                              # a part of a split box: its own lines, starting where they are
         box_top, box_h, v_align = block_top, own, "top"
     top = block_top + line_px - (PPT_BASELINE_GAP + FABRIC_BASELINE) * size_px
-    return {"type": "Textbox", "version": "7.4.0", "originX": "left", "originY": "top", "name": shape.name + part, "text": text,
+    upper = any((r._r.find(qn("a:rPr")) is not None and r._r.find(qn("a:rPr")).get("cap") == "all") for r in runs)
+    obj = {"type": "Textbox", "version": "7.4.0", "originX": "left", "originY": "top", "name": shape.name + part, "text": text,
             "left": round(left, 2), "top": round(top, 2), "width": round(width, 2),
             "vAlign": v_align, "boxTop": round(box_top, 2), "boxHeight": round(box_h, 2),
             "fontFamily": family, "fontWeight": weight, "fontStyle": "italic" if (r0 is not None and r0.font.italic) else "normal",
             "fontSize": round(size_pt / 0.75 * tf_map[2], 1), "charSpacing": round(spc / 100 / size_pt * 1000) if size_pt else 0,
             "fill": fill, "textAlign": align,
             "lineHeight": round(line_px / (size_px * FABRIC_LINE), 4),
-            "angle": shape.rotation or 0, "sourceFont": (r0.font.name if r0 is not None else "") or ""}
+            "angle": shape.rotation or 0, "sourceFont": (r0.font.name if r0 is not None else "") or "",
+            **({"textTransform": "uppercase"} if upper else {}), **_text_effects(rpr, tf_map[2])}
+    runs_styled = _run_styles(paras, obj, size_px, tf_map[2])
+    if runs_styled:
+        obj["runStyles"] = runs_styled
+    if obj["angle"]:                                   # rotated text: PowerPoint rotates around the box centre
+        _w, _h = obj["width"], max(obj["boxHeight"], own)
+        obj.update(originX="center", originY="center", left=round(obj["left"] + _w / 2, 2), top=round(obj["boxTop"] + _h / 2, 2))
+        obj.pop("boxTop"); obj.pop("boxHeight")       # placed as it is (not re-positioned after filling)
+    return obj
 
 
 def _style_key(para):
@@ -341,7 +425,10 @@ def _texts(shape, tf_map):
     block = sum(para_h(p) for g in groups for p in g)
     out, offset = [], 0.0
     for i, g in enumerate(groups):
-        out.append(_text(shape, tf_map, paras=g, offset=offset, block=block, part=f" ({i + 1})"))
+        o = _text(shape, tf_map, paras=g, offset=offset, block=block, part=f" ({i + 1})")
+        if i:
+            o["flowAfter"] = out[-1]["name"]           # keep below the part above, however many lines it wraps to
+        out.append(o)
         offset += sum(para_h(p) for p in g)
     return out
 
@@ -472,6 +559,19 @@ def guess_slots(design, width, height):
     rest = [o for o in texts if id(o) not in taken]
     big = max(rest, key=lambda o: o["fontSize"], default=None)
     mark(big, "line_big")
+    if big is not None:
+        # a title split over stacked text boxes ("Makar" above "Sankranti"): same font, large, one under the other
+        # and centred on each other - the next part(s) of the title (line_big_2, _3), filled word by word
+        bc = big["left"] + big["width"] / 2
+        parts, prev = [], big
+        for o in sorted((o for o in rest if id(o) not in taken), key=lambda o: o["top"]):
+            oc = o["left"] + o["width"] / 2
+            short = lambda t: len(t.split()) <= 2 and len(t.replace("\n", " ")) <= 18      # a word or two, not a sentence
+            if (short(big["text"]) and short(o["text"]) and o["top"] > prev["top"] and o["fontFamily"] == big["fontFamily"] and o["fontSize"] >= big["fontSize"] * 0.4
+                    and o["top"] - prev["top"] < prev["fontSize"] * 2.2 and abs(oc - bc) < big["width"] * 0.25 and len(parts) < 2):
+                parts.append(o); prev = o
+        for i, o in enumerate(parts):
+            o["slot"] = f"line_big_{i + 2}"; taken.add(id(o))
     if big is not None:                                 # a small text in the top corner: the brand / client name
         corner = [o for o in rest if id(o) not in taken and o["top"] < height * .08 and o["fontSize"] < big["fontSize"] * .35]
         mark(min(corner, key=lambda o: o["top"], default=None), "client_name")

@@ -92,3 +92,12 @@ def final_hashtags(tags):
         if len(tag) > 1 and tag.lower() not in [t.lower() for t in out]:
             out.append(tag)
     return out
+
+
+def poster_line(text):
+    """Words printed ON a poster: hashtags and @handles belong in the caption, never on the image
+    ("Tradition and progress | #SunriseSchool" -> "Tradition and progress"). A line left empty returns ""."""
+    import re
+    text = re.sub(r"[#@]\S+", "", str(text or ""))                       # hashtags and handles
+    text = re.sub(r"(\s*\|\s*)+", "|", text.replace("\n", "|")).strip(" |")   # no empty lines, no stray separators
+    return re.sub(r"[ \t]{2,}", " ", text).strip()

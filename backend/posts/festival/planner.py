@@ -9,7 +9,7 @@ import contextvars
 from concurrent.futures import ThreadPoolExecutor
 
 from ai.claude import ask_json
-from posts import COMMON_RULES, client_intro, final_hashtags, marathi_digits, style_kind
+from posts import COMMON_RULES, client_intro, final_hashtags, marathi_digits, poster_line, style_kind
 from posts.festival.prompts import formats
 from storage.languages import get as language
 from storage.clients import current
@@ -53,8 +53,9 @@ Parts of a post:
 - hook: the FIRST line of the caption, short and catchy, max {LIMITS['hook']} letters, no hashtags.
 - poster: the words printed ON the poster image:
     line_small: a short line above the title, max {LIMITS['line_small']} letters (use | for a line break)
-    line_big: the big title, 1 or 2 words, max {LIMITS['line_big']} letters
+    line_big: the big title naming the occasion (e.g. "Makar Sankranti"), 1 or 2 words, max {LIMITS['line_big']} letters
     line_end: the closing wishes line, max {LIMITS['line_end']} letters (use | for a line break)
+    Poster lines are plain words only: no hashtags, no @handles, no emojis (those belong in the caption).
 - caption: the rest of the caption AFTER the hook (2 to 4 short paragraphs). Do not repeat the hook.
 - hashtags: 5 to 8 hashtags as a list: {language(current()["language"])["name"]} ones (words joined with _) and a few English ones.
 - picture: ONE English sentence describing a background picture for this post, with NO text in it.
@@ -112,7 +113,7 @@ def generate(festival):
         clean = {
             "hook": _clean(v.get("hook")),
             "poster": {
-                k: _clean(poster.get(k)) for k in ("line_small", "line_big", "line_end")
+                k: _clean(poster_line(poster.get(k))) for k in ("line_small", "line_big", "line_end")
             },
         }
         warn = _too_long(clean)

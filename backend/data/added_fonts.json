@@ -26,5 +26,12 @@
   "weight": "400",
   "group": "added",
   "core": false
+ },
+ {
+  "family": "Nunito Sans",
+  "file": "added/Nunito_Sans-NunitoSans_YTLC_opsz_wdth_wght_.ttf",
+  "weight": "200 1000",
+  "group": "added",
+  "core": false
  }
 ]

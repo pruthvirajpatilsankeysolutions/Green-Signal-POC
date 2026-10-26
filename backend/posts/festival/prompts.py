@@ -57,8 +57,9 @@ def formats(tone):
 POSTER_LINES = """
 The calendar has no poster text in this language, so also write the words printed ON the poster:
 - line_small: a short line above the title, max 45 letters (use | for a line break)
-- line_big: the big title, 1 or 2 words, max 18 letters
+- line_big: the big title naming the occasion, 1 or 2 words, max 18 letters
 - line_end: the closing wishes line, max 45 letters
+Poster lines are plain words only: no hashtags, no @handles, no emojis (those belong in the caption).
 """
 
 

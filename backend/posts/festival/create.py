@@ -12,7 +12,7 @@ from design.poster import (
     render,
 )
 
-from posts import final_hashtags, marathi_digits
+from posts import final_hashtags, marathi_digits, poster_line
 from posts.festival.prompts import caption_prompt, scene_prompt
 from storage import drafts
 from storage.clients import current
@@ -51,7 +51,7 @@ def write_caption(festival):
     poster = result.get("poster") if festival.get("needs_text") else None
     poster = (
         {
-            k: marathi_digits(str((poster or {}).get(k, "")).strip())
+            k: marathi_digits(poster_line((poster or {}).get(k, "")))
             for k in ("line_small", "line_big", "line_end")
         }
         if poster
@@ -78,6 +78,7 @@ def make_post(festival, background_path, ai_generated, layout="text_right", plan
             chosen["caption"] = body
             chosen["hashtags"] = chosen.get("hashtags") or tags
         caption, hashtags, poster = final_text(chosen)
+        poster = {k: (poster_line(v) if k in ("line_small", "line_big", "line_end") else v) for k, v in (poster or {}).items()}
         festival = {
             **festival,
             **{

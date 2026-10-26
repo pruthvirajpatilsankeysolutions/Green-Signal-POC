@@ -39,6 +39,8 @@ SLOTS = [
     {"id": "client_name", "label": "Client name", "kind": "text"},
     {"id": "line_small", "label": "Poster: small line", "kind": "text"},
     {"id": "line_big", "label": "Poster: title", "kind": "text"},
+    {"id": "line_big_2", "label": "Title, 2nd part (stacked box)", "kind": "text"},
+    {"id": "line_big_3", "label": "Title, 3rd part (stacked box)", "kind": "text"},
     {"id": "line_end", "label": "Poster: closing line / message", "kind": "text"},
     {"id": "phone", "label": "Phone", "kind": "text"},
     {"id": "contact", "label": "Handle / address", "kind": "text"},
