@@ -5,5 +5,26 @@
   "weight": "400",
   "group": "added",
   "core": false
+ },
+ {
+  "family": "Allura",
+  "file": "added/Allura-Allura-Regular.ttf",
+  "weight": "400",
+  "group": "added",
+  "core": false
+ },
+ {
+  "family": "Libre Baskerville",
+  "file": "added/Libre_Baskerville-LibreBaskerville_wght_.ttf",
+  "weight": "400 700",
+  "group": "added",
+  "core": false
+ },
+ {
+  "family": "Belleza",
+  "file": "added/Belleza-Belleza-Regular.ttf",
+  "weight": "400",
+  "group": "added",
+  "core": false
  }
 ]

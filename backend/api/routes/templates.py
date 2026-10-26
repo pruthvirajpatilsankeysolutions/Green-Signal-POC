@@ -109,7 +109,8 @@ def templates_for_post(occasion: str = "", post_type: str = ""):
             continue
         if t["client_types"] and not kinds & set(t["client_types"]):
             continue
-        if t["occasions"] and occasion not in t["occasions"] and post_type not in t["occasions"]:
+        base = lambda x: re.sub(r"-\d{4}$", "", x or "")                # "diwali-2027" -> "diwali": works every year
+        if t["occasions"] and base(occasion) not in {base(o) for o in t["occasions"]} and post_type not in t["occasions"]:
             continue
         out.append(_card(run(templates.get, t["id"])))
     return {"templates": out}

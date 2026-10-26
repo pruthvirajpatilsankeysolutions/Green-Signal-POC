@@ -7,6 +7,7 @@ mapped to a family + weight ("Poppins Semi-Bold" -> Poppins 600) so the app can 
 Plain vector shapes without a picture are not converted yet.
 """
 import hashlib
+import json
 import re
 
 from PIL import Image
@@ -252,10 +253,14 @@ def _flips(shape):
     return {"flipX": yes("flipH"), "flipY": yes("flipV")}
 
 
-def _text(shape, tf_map=(0, 0, 1, 1)):
+def _text(shape, tf_map=(0, 0, 1, 1), paras=None, offset=0.0, block=None, part=""):
+    """One text layer: the whole text box, or (paras) a group of its paragraphs that share a style, placed
+    `offset` px below the box's first line; `block` is the height of all the box's lines (for centring)."""
     tf = shape.text_frame
-    para = tf.paragraphs[0]
-    runs = [r for p in tf.paragraphs for r in p.runs]
+    paras = paras or list(tf.paragraphs)
+    para = paras[0]
+    runs = [r for p in paras for r in p.runs]
+    text = "\n".join("".join(r.text for r in p.runs) for p in paras).strip("\n")
     r0 = runs[0] if runs else None
     size_pt = r0.font.size.pt if r0 is not None and r0.font.size else 18
     family, weight = split_font(r0.font.name if r0 is not None else None, bool(r0 is not None and r0.font.bold))
@@ -278,11 +283,15 @@ def _text(shape, tf_map=(0, 0, 1, 1)):
     # PowerPoint puts a line's extra spacing above the text, Fabric below it: move the text down so the
     # first baseline lands where PowerPoint / Canva put it, and keep the same distance between lines
     box_top = top                                      # the text box's top (the engine re-positions from it after filling)
-    lines = tf.text.count("\n") + 1                    # explicit lines (wrapping is measured later by the engine)
-    block = lines * line_px
-    block_top = top + ((box_h - block) / 2 if v_align == "middle" else (box_h - block) if v_align == "bottom" else 0)
+    lines = text.count("\n") + 1                       # explicit lines (wrapping is measured later by the engine)
+    own = lines * line_px
+    whole = block if block is not None else own
+    block_top = top + ((box_h - whole) / 2 if v_align == "middle" else (box_h - whole) if v_align == "bottom" else 0)
+    block_top += offset
+    if block is not None:                              # a part of a split box: its own lines, starting where they are
+        box_top, box_h, v_align = block_top, own, "top"
     top = block_top + line_px - (PPT_BASELINE_GAP + FABRIC_BASELINE) * size_px
-    return {"type": "Textbox", "version": "7.4.0", "originX": "left", "originY": "top", "name": shape.name, "text": tf.text,
+    return {"type": "Textbox", "version": "7.4.0", "originX": "left", "originY": "top", "name": shape.name + part, "text": text,
             "left": round(left, 2), "top": round(top, 2), "width": round(width, 2),
             "vAlign": v_align, "boxTop": round(box_top, 2), "boxHeight": round(box_h, 2),
             "fontFamily": family, "fontWeight": weight, "fontStyle": "italic" if (r0 is not None and r0.font.italic) else "normal",
@@ -290,6 +299,51 @@ def _text(shape, tf_map=(0, 0, 1, 1)):
             "fill": fill, "textAlign": align,
             "lineHeight": round(line_px / (size_px * FABRIC_LINE), 4),
             "angle": shape.rotation or 0, "sourceFont": (r0.font.name if r0 is not None else "") or ""}
+
+
+def _style_key(para):
+    """What makes a paragraph look different: font, weight, italic, colour (sizes within 25% count as the same)."""
+    r = next((r for r in para.runs if r.text.strip()), None)
+    if r is None:
+        return None
+    rpr = r._r.find(qn("a:rPr"))
+    lat = rpr.find(qn("a:latin")) if rpr is not None else None
+    solid, _a = _colour(rpr)
+    grad = _gradient(rpr)
+    return ((lat.get("typeface") if lat is not None else r.font.name) or "", bool(r.font.bold), bool(r.font.italic),
+            solid or (json.dumps(grad, sort_keys=True) if grad else ""), r.font.size.pt if r.font.size else 18)
+
+
+def _texts(shape, tf_map):
+    """A text box becomes one layer, or several when its lines use different styles (e.g. a name in a serif
+    and "Jayanti" in a script font): each group of same-style lines is its own layer, where those lines are."""
+    paras = [p for p in shape.text_frame.paragraphs]
+    groups, current = [], []
+    for p in paras:
+        key = _style_key(p)
+        if key is None:                                 # empty line: belongs to the current group
+            current.append(p); continue
+        prev = next((_style_key(q) for q in reversed(current) if _style_key(q)), None)
+        same = prev is not None and prev[:4] == key[:4] and abs(prev[4] - key[4]) <= 0.25 * max(prev[4], key[4])
+        if current and prev is not None and not same:
+            groups.append(current); current = []
+        current.append(p)
+    if current:
+        groups.append(current)
+    groups = [g for g in groups if "".join(r.text for p in g for r in p.runs).strip()]
+    if len(groups) <= 1:
+        return [_text(shape, tf_map)]
+    # line heights of every paragraph (their own line spacing), to place each group where its lines are
+    def para_h(p):
+        r = next((r for r in p.runs if r.text.strip()), None)
+        size_px = ((r.font.size.pt if r is not None and r.font.size else 18) / 0.75) * tf_map[2]
+        return _line_height(p, size_px, tf_map[2])
+    block = sum(para_h(p) for g in groups for p in g)
+    out, offset = [], 0.0
+    for i, g in enumerate(groups):
+        out.append(_text(shape, tf_map, paras=g, offset=offset, block=block, part=f" ({i + 1})"))
+        offset += sum(para_h(p) for p in g)
+    return out
 
 
 def convert(pptx_path, template_id):
@@ -332,7 +386,8 @@ def convert(pptx_path, template_id):
                 try:
                     hd_name = f"{name.rsplit('.', 1)[0]}_sr.png"
                     k = photo_enhance.enhance(folder / name, gain, folder / hd_name)
-                    name, iw, ih = hd_name, iw * k, ih * k
+                    if k:                                # None: too big to enhance - the original photo is kept
+                        name, iw, ih = hd_name, iw * k, ih * k
                 except Exception:                    # never fail an import over this: keep the original photo
                     pass
         cw, ch = iw * (1 - c["l"] - c["r"]), ih * (1 - c["t"] - c["b"])
@@ -382,7 +437,7 @@ def convert(pptx_path, template_id):
                 if shape:
                     objects.append(shape)
             if s.has_text_frame and s.text_frame.text.strip():
-                objects.append(_text(s, tf))
+                objects.extend(_texts(s, tf))
 
     background = _slide_background(prs.slides[0], W, H)
     if background:
@@ -395,7 +450,9 @@ def convert(pptx_path, template_id):
 
 def guess_slots(design, width, height):
     """A first guess of which texts the app fills (the user can change it in the editor)."""
-    texts = [o for o in design["objects"] if o.get("type") == "Textbox" and "logo here" not in o["text"].lower()]
+    months = r"jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(t(ember)?)?|oct(ober)?|nov(ember)?|dec(ember)?"
+    is_date = lambda t: len(t) <= 24 and re.search(rf"\b\d{{1,2}}(st|nd|rd|th)?\b.*\b({months})\b|\b({months})\b.*\b\d{{1,2}}(st|nd|rd|th)?\b", t.lower().replace("\n", " "))
+    texts = [o for o in design["objects"] if o.get("type") == "Textbox" and "logo here" not in o["text"].lower() and not is_date(o["text"])]
     if not texts:
         return design
     taken = set()
@@ -415,6 +472,9 @@ def guess_slots(design, width, height):
     rest = [o for o in texts if id(o) not in taken]
     big = max(rest, key=lambda o: o["fontSize"], default=None)
     mark(big, "line_big")
+    if big is not None:                                 # a small text in the top corner: the brand / client name
+        corner = [o for o in rest if id(o) not in taken and o["top"] < height * .08 and o["fontSize"] < big["fontSize"] * .35]
+        mark(min(corner, key=lambda o: o["top"], default=None), "client_name")
     if big is not None:
         above = [o for o in rest if id(o) not in taken and o["top"] < big["top"] and o["fontSize"] < big["fontSize"]
                  and big["top"] - o["top"] < height * .2]

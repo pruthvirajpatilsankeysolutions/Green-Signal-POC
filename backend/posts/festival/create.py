@@ -100,9 +100,22 @@ def make_post(festival, background_path, ai_generated, layout="text_right", plan
     tone = festival["tone"]
 
     if template_id:                                        # the user picked a saved template
+        import re
         from posts import template_post
+        from storage import templates as saved_templates
+        base = lambda x: re.sub(r"-\d{4}$", "", x or "")
+        t = saved_templates.get(template_id) or {}
+        # designed for this very occasion: its words are already right, so only the client's details are filled;
+        # a general template (any festival) gets this festival's words
+        made_for_it = base(festival["id"]) in {base(o) for o in (t.get("occasions") or [])}
+        # ...and only if its words are in the client's language (English words aren't kept for a Marathi client)
+        texts = " ".join(o.get("text", "") for o in (t.get("design") or {}).get("objects", []) if str(o.get("type", "")).lower() == "textbox")
+        devanagari = sum(1 for ch in texts if "\u0900" <= ch <= "\u097f") > sum(1 for ch in texts if ch.isascii() and ch.isalpha())
+        from storage.clients import current as current_client
+        made_for_it = made_for_it and devanagari == (current_client().get("language", "mr") in ("mr", "hi"))
+        words = {} if made_for_it else {k: festival[k] for k in ("line_small", "line_big", "line_end")}
         return template_post.make_post(
-            template_id, {k: festival[k] for k in ("line_small", "line_big", "line_end")},
+            template_id, words,
             title=f"{festival['occasion_mr']} ({festival['date']})", caption=caption, hashtags=hashtags,
             details={"festival_id": festival["id"], "tone": tone, "plan_id": plan["id"] if plan else ""},
             post_type="festival", photo=str(background_path) if background_path else "",
