@@ -15,7 +15,7 @@ def client_slots():
             "address": c.get("address") or ""}
 
 
-def make_post(template_id, words, title, caption, hashtags, details, post_type, photo="", extra=None, ai=None):
+def make_post(template_id, words, title, caption, hashtags, details, post_type, photo="", extra=None, ai=None, frame="none"):
     """words: {line_small, line_big, line_end} (| = new line); extra: slot values from the post's form
     (e.g. its own contact number) that replace the client's. Returns the draft (it opens in the editor)."""
     t = templates.get(template_id)
@@ -33,9 +33,15 @@ def make_post(template_id, words, title, caption, hashtags, details, post_type, 
     if ai:
         from posts import template_ai
         edits, notes = template_ai.plan(t["design"], ai["facts"], ai["headline"], caption, ai["language"], ai["kind"])
-    png, design, warnings = template_fill.fill(t["design"], slots, {"logo": logo, "photo": photo}, name=template_id, edits=edits)
+    # the client frame (banner + leader photo); the banner shows the name, so the template's own name line goes
+    from design import frame as client_frame
+    frame_assets = client_frame.assets(frame, turn=len(drafts.load_all()))
+    if frame_assets:
+        slots["client_name"] = ""
+    png, design, warnings = template_fill.fill(t["design"], slots, {"logo": logo, "photo": photo}, name=template_id,
+                                               edits=edits, frame=frame_assets)
     warnings = notes + warnings
-    details = {**details, "ai_layout": bool(edits)}
+    details = {**details, "ai_layout": bool(edits), "ai_plan": edits or {}, "frame": frame if frame_assets else "none"}
     draft = drafts.create(post_type=post_type, title=title, caption=caption, hashtags=hashtags, images=[png],
                           details={**details, "template_id": template_id}, warnings=warnings)
     return drafts.update(draft["id"], "made from a template", design={"feed": design})   # Edit design opens these layers

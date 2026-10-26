@@ -85,13 +85,14 @@ function TypeForm({ type, lang, onCreated }) {
   });
 
   const [templateId, setTemplateId] = useState("");
+  const [frame, setFrame] = useState("none");
   const create = () => act("create", async () => {
     if (type.photo === "required" && !photo) throw new Error("Please add a photo for this post.");
     const data = new FormData();
     data.append("form", JSON.stringify(form));
     data.append("chosen", JSON.stringify(chosen));
     if (photo) data.append("photo", photo);
-    if (templateId) data.append("template_id", templateId);
+    if (templateId) { data.append("template_id", templateId); data.append("frame", frame); }
     setDraft(await api.createCustomPost(type.id, data));
     onCreated();
   });
@@ -220,7 +221,7 @@ function TypeForm({ type, lang, onCreated }) {
                 <button className="btn small" onClick={addTags} disabled={!newTag.trim()}><Plus size={14} /> Add</button>
               </div>
             </section>
-            <TemplatePicker postType={type.id} value={templateId} onChange={(id) => setTemplateId(id)} />
+            <TemplatePicker postType={type.id} value={templateId} onChange={(id) => setTemplateId(id)} frame={frame} onFrameChange={setFrame} />
             <Notice kind="error">{error}</Notice>
             <div className="actions end">
               <button className="btn primary" onClick={create} disabled={!!busy || !chosen.headline.trim() || !chosen.caption.trim()}>

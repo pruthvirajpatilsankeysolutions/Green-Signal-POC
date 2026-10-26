@@ -114,6 +114,7 @@ class FestivalPostIn(BaseModel):
     background: str = ""                   # optional with a template (its own picture)
     layout: str = "text_right"
     template_id: str = ""
+    frame: str = "none"            # template posts: "photo_banner" | "banner" | "none"
     ai_generated: bool = False
     use_plan: bool = True
 
@@ -130,6 +131,7 @@ def create_festival_post(fid: str, body: FestivalPostIn):
         body.layout,
         plan,
         body.template_id,
+        body.frame,
     )
     if plan:
         plans.update(

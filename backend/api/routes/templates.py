@@ -223,6 +223,13 @@ def delete_template(template_id: str):
     return {"deleted": template_id}
 
 
+@router.get("/frames")
+def frames():
+    """Which client frames (banner / banner + leader photo) the current client can use on template posts."""
+    from design import frame
+    return run(frame.available)
+
+
 class AutoFontIn(BaseModel):
     family: str
 

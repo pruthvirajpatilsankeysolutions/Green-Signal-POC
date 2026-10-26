@@ -64,7 +64,7 @@ def write_caption(festival):
     )
 
 
-def make_post(festival, background_path, ai_generated, layout="text_right", plan=None, template_id=""):
+def make_post(festival, background_path, ai_generated, layout="text_right", plan=None, template_id="", frame="none"):
     """plan: a post plan with chosen words. Without it, the calendar's standard
     poster text is used and the AI writes the caption."""
     if plan and plan.get("chosen"):
@@ -105,7 +105,8 @@ def make_post(festival, background_path, ai_generated, layout="text_right", plan
             template_id, {k: festival[k] for k in ("line_small", "line_big", "line_end")},
             title=f"{festival['occasion_mr']} ({festival['date']})", caption=caption, hashtags=hashtags,
             details={"festival_id": festival["id"], "tone": tone, "plan_id": plan["id"] if plan else ""},
-            post_type="festival", photo=str(background_path) if background_path else "")
+            post_type="festival", photo=str(background_path) if background_path else "",
+            frame="banner" if frame == "photo_banner" and tone == "solemn" else frame)   # no photo on solemn days
 
     if tone in TRIBUTE_TONES:
         template, layout = "tribute.html", "text_left"

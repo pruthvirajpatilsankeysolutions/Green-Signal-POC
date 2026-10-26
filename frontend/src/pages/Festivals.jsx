@@ -450,10 +450,11 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
   });
 
   const [templateId, setTemplateId] = useState("");
+  const [frame, setFrame] = useState("none");
   const [templateInfo, setTemplateInfo] = useState(null);
   const needsPicture = !templateId || templateInfo?.slots?.includes("photo");
   const onCreate = () => act("create", async () => {
-    const d = await api.createFestivalPost(fest.id, { background: chosen?.path || "", layout, ai_generated: aiLabel, use_plan: true, template_id: templateId });
+    const d = await api.createFestivalPost(fest.id, { background: chosen?.path || "", layout, ai_generated: aiLabel, use_plan: true, template_id: templateId, frame: templateId ? frame : "none" });
     setDraft(d);
     setPlanKey((k) => k + 1);                       // the plan was used; the next post starts fresh
     onCreated();
@@ -524,7 +525,8 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
       </label>
 
       <div className="step-title"><span>3</span> Create</div>
-      <TemplatePicker occasion={fest.id} postType="festival" value={templateId} onChange={(id, t) => { setTemplateId(id); setTemplateInfo(t || null); }} />
+      <TemplatePicker occasion={fest.id} postType="festival" value={templateId} onChange={(id, t) => { setTemplateId(id); setTemplateInfo(t || null); }}
+                      frame={frame} onFrameChange={setFrame} />
       {templateId && !needsPicture && <p className="hint">This template has its own picture, so no background is needed.</p>}
       {plan && plan.status !== "approved" && <p className="hint">The words aren't approved yet. You can still create the poster with the current picks.</p>}
       <Notice kind="error">{error}</Notice>

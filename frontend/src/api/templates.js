@@ -14,6 +14,8 @@ export const templatesApi = {
   saveTemplateSettings: (id, body) => request(`/api/templates/${id}`, json(body, "PUT")),
   deleteTemplate: (id) => request(`/api/templates/${id}`, { method: "DELETE" }),
   // download a font from Google Fonts (open licence); fails with a message for Canva / commercial fonts
+  // which client frames (banner / banner + leader photo) the current client can use on template posts
+  templateFrames: () => request("/api/templates/frames"),
   autoFont: (family) => request("/api/templates/fonts/auto", json({ family })),
   addFont: (file, family, weight) => { const f = new FormData(); f.append("file", file); f.append("family", family); f.append("weight", weight); return upload("/api/templates/fonts", f); },
 };

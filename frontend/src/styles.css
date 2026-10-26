@@ -4364,3 +4364,10 @@ tr:last-child td {
 .ed-fontnote { font-size: 12px; color: #b42318; flex-basis: 100%; }
 .ed-fontok { margin-left: 8px; }
 .ed-fontmeta { font-size: 12px; color: #667085; }
+
+/* Template picker: leader photo & banner choice */
+.tpl-frame { margin-top: 12px; }
+.tpl-frame .seg { display: inline-flex; border: 1px solid var(--border, #e3e7ee); border-radius: 10px; overflow: hidden; }
+.tpl-frame .seg button { border: 0; background: #fff; padding: 8px 14px; cursor: pointer; font-size: 14px; color: #344054; }
+.tpl-frame .seg button + button { border-left: 1px solid var(--border, #e3e7ee); }
+.tpl-frame .seg button.on { background: var(--brand-50, #ecfdf3); color: var(--brand-700, #027a48); font-weight: 600; }

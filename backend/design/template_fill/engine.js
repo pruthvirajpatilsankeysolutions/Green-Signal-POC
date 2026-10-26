@@ -6,7 +6,7 @@ fabric.FabricObject.ownDefaults.originX = "left";
 fabric.FabricObject.ownDefaults.originY = "top";
 fabric.FabricImage.ownDefaults.objectCaching = false;     // pictures: no low-quality cached copy
 fabric.Textbox.ownDefaults.objectCaching = false;         // texts: drawn directly (sharper small text)
-const KEEP = ["name", "slot", "isBackground", "selectable", "evented", "minSize", "maxLines", "sourceFont", "vAlign", "boxTop", "boxHeight",
+const KEEP = ["name", "frameLayer", "slot", "isBackground", "selectable", "evented", "minSize", "maxLines", "sourceFont", "vAlign", "boxTop", "boxHeight",
               "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls"];
 const DEVANAGARI = /[\u0900-\u097F]/;
 // fonts that have Devanagari letters; others are swapped for Marathi / Hindi text
@@ -50,9 +50,98 @@ async function replacePicture(c, o, url, mode) {
   c.remove(o);
 }
 
+// The client frame (politicians): the design is scaled into the space above a banner (logo + name +
+// designations) and the leader's photo rises above the banner on the right. Texts the photo would cover
+// are moved left (or shrunk), judged by the photo's real shape, not its rectangle.
+async function applyFrame(c, f, W, H, warnings) {
+  const story = H > W * 1.5;
+  const fh = Math.round(H * (story ? 0.11 : 0.15));
+  const s = (H - fh) / H;
+  // Make room for the banner: the whole design is fitted into the space above it (nothing is covered).
+  // Full-page backgrounds keep filling the page; elements touching a side edge stay against that edge, and
+  // elements spanning both edges stay full width, so no empty strips appear at the sides.
+  const coversPage = (o) => { const r = o.getBoundingRect(); return r.left <= 4 && r.top <= 4 && r.left + r.width >= W - 4 && r.top + r.height >= H * 0.95; };
+  const isBack = (o) => o.isBackground || (o.type.toLowerCase() === "image" && coversPage(o));
+  for (const o of c.getObjects()) {
+    if (isBack(o)) continue;
+    const r = o.getBoundingRect(), p = o.getCenterPoint();
+    const atLeft = r.left <= 4, atRight = r.left + r.width >= W - 4;
+    o.set({ scaleX: o.scaleX * s, scaleY: o.scaleY * s });
+    let cx = W / 2 + (p.x - W / 2) * s;
+    const w2 = r.width * s;
+    if (atLeft && atRight) {
+      cx = W / 2;
+      if (w2 < W) { const k = W / w2; o.set({ scaleX: o.scaleX * k, scaleY: o.scaleY * k }); }   // stays full width
+    } else if (atLeft) cx = r.left + w2 / 2;                          // stays against the left edge
+    else if (atRight) cx = r.left + r.width - w2 / 2;                 // stays against the right edge
+    o.setPositionByOrigin(new fabric.Point(cx, p.y * s), "center", "center");
+    o.setCoords();
+  }
+  const load = (u) => fabric.FabricImage.fromURL(u);
+  const add = (o, name) => { o.set({ name, frameLayer: true }); c.add(o); o.setCoords(); return o; };
+  const contain = (img, x, y, w, h, align) => {
+    const k = Math.min(w / img.width, h / img.height), w2 = img.width * k, h2 = img.height * k;
+    img.set({ originX: "left", originY: "top", scaleX: k, scaleY: k, top: y + (h - h2) / 2,
+              left: align === "left" ? x : x + (w - w2) / 2 });
+    return img;
+  };
+  add(new fabric.Rect({ originX: "left", originY: "top", left: 0, top: H - fh, width: W, height: fh, fill: f.bg, strokeWidth: 0 }), "Frame: banner background");
+  add(new fabric.Rect({ originX: "left", originY: "top", left: 0, top: H - fh, width: W, height: 6, fill: f.accent, strokeWidth: 0 }), "Frame: accent line");
+  let leader = null, leaderW = 0;                                       // 2) banner + photo
+  if (f.leader) {
+    leader = await load(f.leader);
+    const lh = Math.min(fh * 2.6, H * 0.45), k = lh / leader.height;
+    leaderW = leader.width * k;
+    leader.set({ originX: "left", originY: "top", scaleX: k, scaleY: k, left: W - leaderW - 8, top: H - lh });
+  }
+  const pad = 14, x0 = 20, x1 = leader ? W - leaderW * 0.85 - 10 : W - 20, y = H - fh + 6 + pad, h = fh - 6 - 2 * pad;
+  if (f.logo && f.text) {
+    const logo = contain(await load(f.logo), x0, y, h * 1.2, h, "left");
+    const logoRight = logo.left + logo.width * logo.scaleX + 16;
+    add(logo, "Frame: logo");
+    add(contain(await load(f.text), logoRight, y, Math.max(40, x1 - logoRight), h, "center"), "Frame: name and designations");
+  } else if (f.full) {
+    add(contain(await load(f.full), x0, y, x1 - x0, h, "center"), "Frame: banner");
+  }
+  if (!leader) return;
+  add(leader, "Frame: photo");
+  // 3) texts must not sit on the photo: a map of where the photo really is (its visible pixels)
+  const others = c.getObjects().filter((o) => o !== leader && o.visible !== false);
+  const bg = c.backgroundColor;
+  others.forEach((o) => { o.visible = false; }); c.backgroundColor = "";
+  const mask = c.toCanvasElement(1).getContext("2d");
+  others.forEach((o) => { o.visible = true; }); c.backgroundColor = bg;
+  const photoLeftIn = (r) => {                                         // leftmost photo pixel within r (Infinity: none)
+    const xa = Math.max(0, Math.floor(r.left)), ya = Math.max(0, Math.floor(r.top));
+    const w = Math.min(W - xa, Math.ceil(r.width)), hh = Math.min(H - ya, Math.ceil(r.height));
+    if (w <= 0 || hh <= 0) return Infinity;
+    const d = mask.getImageData(xa, ya, w, hh).data;
+    let best = Infinity;
+    for (let yy = 0; yy < hh; yy++) for (let xx = 0; xx < w && xa + xx < best; xx++) if (d[(yy * w + xx) * 4 + 3] > 40) { best = xa + xx; break; }
+    return best;
+  };
+  for (const o of c.getObjects()) {
+    if (o.type.toLowerCase() !== "textbox" || o.frameLayer || o.visible === false) continue;
+    o.initDimensions();
+    const textW = Math.max(...o._textLines.map((_, i) => o.getLineWidth(i))) * o.scaleX;
+    const r = o.getBoundingRect();
+    const off = o.textAlign === "center" ? (r.width - textW) / 2 : o.textAlign === "right" ? r.width - textW : 0;
+    const hit = photoLeftIn({ left: r.left + off, top: r.top, width: textW, height: r.height });
+    if (hit === Infinity) continue;
+    const limit = hit - 16, margin = 24;
+    let k = 1, left = limit - textW;
+    if (left < margin) { k = Math.max(0.5, (limit - margin) / textW); left = margin; }
+    if ((limit - margin) / textW < 0.5) warnings.push(`"${String(o.text).slice(0, 30)}" is close to the photo even after shrinking`);
+    o.set({ width: textW / o.scaleX + 2 });                           // the box hugs its text
+    o.set({ scaleX: o.scaleX * k, scaleY: o.scaleY * k });
+    o.setPositionByOrigin(new fabric.Point(left, r.top + (r.height - r.height * k) / 2), "left", "top");
+    o.setCoords();
+  }
+}
+
 // edits (optional, from the AI layout plan): { set: {layerIndex: text}, remove: [layerIndex],
 //   add: [{ like: layerIndex, below: layerIndex, text }] }; layerIndex = position in design.objects
-window.fillTemplate = async (design, slots, pictures, scale = 1, edits = null) => {
+window.fillTemplate = async (design, slots, pictures, scale = 1, edits = null, frame = null) => {
   await Promise.all([...document.fonts].map((f) => f.load().catch(() => null)));
   const W = design.size.width, H = design.size.height;
   const c = new fabric.StaticCanvas(null, { width: W, height: H, backgroundColor: "#ffffff" });
@@ -268,6 +357,7 @@ window.fillTemplate = async (design, slots, pictures, scale = 1, edits = null) =
     if (placed) { c.insertAt(c.getObjects().indexOf(like) + 1, n); stack[key] = n; pageNow = null; }
     else warnings.push(`No free space for the extra line "${String(a.text).slice(0, 40)}"`);
   }
+  if (frame) await applyFrame(c, frame, W, H, warnings);
   c.renderAll();
   return { png: c.toDataURL({ format: "png", multiplier: scale }), json: { ...c.toObject(KEEP), size: { width: W, height: H } }, warnings };
 };

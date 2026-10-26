@@ -144,7 +144,7 @@ def photo_shape(path):
     return "portrait" if ratio < 0.85 else "landscape" if ratio > 1.25 else "square"
 
 
-def make_post(ptype, form, chosen, photo_path="", template_id=""):
+def make_post(ptype, form, chosen, photo_path="", template_id="", frame="none"):
     """Poster + caption from the form and the chosen words. Returns the draft."""
     form = check_form(ptype, form)
     if TYPES[ptype]["photo"] == "required" and not photo_path:
@@ -180,7 +180,8 @@ def make_post(ptype, form, chosen, photo_path="", template_id=""):
             post_type="custom", photo=photo_path,
             extra={"phone": md(form.get("contact") or "")},          # the form's own contact number comes first
             ai={"facts": _facts(ptype, form), "headline": headline, "kind": TYPES[ptype]["label"].lower(),
-                "language": language(lang)["name"]})                  # AI decides which template texts to set / remove / add
+                "language": language(lang)["name"]},                  # AI decides which template texts to set / remove / add
+            frame=frame)
     poster = {k: (md(v) if isinstance(v, str) else v) for k, v in form.items()}
     if ptype == "achievement":
         poster["stats"] = [
