@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import {
-  CalendarHeart, Camera, CheckCircle2, ChevronRight, History as HistoryIcon, LayoutDashboard, Newspaper, PlusSquare, Users, LayoutTemplate,
+  ArrowUpRight, CalendarHeart, Camera, CheckCircle2, ChevronRight, Feather, History as HistoryIcon, LayoutDashboard, Newspaper, PlusSquare, Users, LayoutTemplate,
 } from "lucide-react";
 import { api, getClientId, setClientId } from "./api.js";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -38,6 +38,11 @@ const NAV = [
       { to: "/approvals", label: "Approvals", icon: CheckCircle2, badge: "waiting" },
       { to: "/history", label: "History", icon: HistoryIcon },
     ],
+  },
+  {
+    // Story Studio is a separate tool (its own page at /studio), so this is a plain link, opened in a new tab
+    title: "Tools",
+    items: [{ href: "/studio", label: "Story Studio", icon: Feather, external: true }],
   },
   {
     title: "Settings",
@@ -101,7 +106,13 @@ export default function App() {
             {NAV.map((group, gi) => (
               <div key={gi} className="nav-group">
                 {group.title && <div className="nav-title">{group.title}</div>}
-                {group.items.filter((item) => allowed(item.feature)).map(({ to, label, icon: Icon, end, badge }) => (
+                {group.items.filter((item) => allowed(item.feature)).map(({ to, href, external, label, icon: Icon, end, badge }) => external ? (
+                  <a key={href} href={href} target="_blank" rel="noopener noreferrer" className="nav-link" title={`${label} opens in a new tab`}>
+                    <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
+                    <span>{label}</span>
+                    <ArrowUpRight size={14} className="nav-ext" aria-hidden="true" />
+                  </a>
+                ) : (
                   <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
                     <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
                     <span>{label}</span>

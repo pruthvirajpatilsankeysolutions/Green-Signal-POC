@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarHeart, Camera, CheckCircle2, Clock, Newspaper } from "lucide-react";
+import { ArrowUpRight, CalendarHeart, Camera, CheckCircle2, Clock, Feather, Newspaper } from "lucide-react";
 import { api } from "../api.js";
 import { useStatus } from "../App.jsx";
 import DateBlock from "../components/DateBlock.jsx";
@@ -44,6 +44,15 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
+
+      <section className="card studio-card">
+        <span className="stat-icon" aria-hidden="true"><Feather size={18} /></span>
+        <div className="studio-text">
+          <h2>Story Studio</h2>
+          <p className="muted">Develop a story or screenplay one stage at a time, with every stage approved by you. Opens in a new tab.</p>
+        </div>
+        <a className="btn" href="/studio" target="_blank" rel="noopener noreferrer">Open Story Studio <ArrowUpRight size={16} aria-hidden="true" /></a>
+      </section>
 
       <div className="grid-2">
         <section className="card">

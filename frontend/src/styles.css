@@ -2454,7 +2454,12 @@ tr:last-child td {
 
 @media (max-width: 760px) {
   .app {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);   /* 1fr alone can't shrink below its content: the menu row made the whole page ~1100px wide */
+  }
+
+  .sidebar,
+  .workspace {
+    min-width: 0;
   }
 
   .sidebar {
@@ -2489,6 +2494,27 @@ tr:last-child td {
 
   .topbar {
     padding: 0 16px;
+    gap: 10px;
+  }
+
+  .crumbs {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .client-chip {
+    min-width: 0;
+    max-width: 60%;
+  }
+
+  .client-cat {
+    display: none;
+  }
+
+  .client-select {
+    min-width: 0;
+    max-width: 130px;
   }
 
   .content {
@@ -4474,3 +4500,23 @@ tr:last-child td {
 .bc .hint a { color: var(--primary); font-weight: 600; text-decoration: none; }
 .bc .hint a:hover { text-decoration: underline; }
 .pb { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+
+/* link to Story Studio (a separate tool at /studio) */
+.nav-ext { margin-left: auto; opacity: 0.5; }
+.nav-link:hover .nav-ext { opacity: 0.9; }
+.studio-card { flex-direction: row; align-items: center; gap: 16px; margin-bottom: 16px; }   /* .card is a column by default */
+.studio-card .stat-icon { flex: none; background: #eeeefc; color: #5453d6; }
+.studio-card .studio-text { flex: 1; min-width: 0; }
+.studio-card h2 { font-size: 15px; margin: 0 0 2px; }
+.studio-card p { margin: 0; }
+@media (max-width: 760px) {
+  .nav-ext { display: none; }
+  .studio-card { flex-wrap: wrap; }
+}
+
+/* Festivals toolbar: on a phone the search box and the view switcher go on separate lines */
+@media (max-width: 760px) {
+  .cx-tools { flex-wrap: wrap; width: 100%; }
+  .cx-search { flex: 1 1 100%; }
+  .seg { max-width: 100%; overflow-x: auto; }
+}

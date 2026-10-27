@@ -25,9 +25,15 @@ STAGE_GUIDE = {
                "and what happened in the past (who did what, and why). Vague settings are the most common source of later contradictions.",
     "logline": "ONE sentence, max 35 words: who, wants what, what stands in the way, and what happens if they fail. "
                "Then one short line starting with *Why it works:*.",
-    "characters": "A protagonist, an antagonist and 2-4 supporting characters. For each: a bold name + role line (for example `**Raghu** — protagonist, forest labourer`), "
-                  "then bullets for Want, Need, Fear, Flaw and Arc (one line each). Every arc must be something that can visibly happen on the page within this story's "
-                  "time frame. Bold names matter: the tool reads them. Use bold ONLY for character names.",
+    "characters": "A cast of one protagonist, one opposing force (the antagonist, or in a family drama the person or pressure that stands against the want) "
+                "and 2-4 supporting characters. Write the opposing force's goal first. Each character: a bold name + role line, with age and family relationship "
+                "stated plainly (they are canon). For the protagonist and the opposing force, one line each: Want (concrete, playable in a scene); Why; "
+                "Need (what they do not know they need); Flaw; Past (one event before page 1 that explains the flaw); Contradiction; Habit (a ritual that shows "
+                "them without dialogue); Voice; Never (one thing they would never do); Relationships (closest to / should be close but is not / who has power "
+                "over whom); Pressure (three tactics from mild to extreme, then a final choice between two costly options); Arc (a situation from the start "
+                "that repeats at the end and shows the change). Supporting characters: Want, Flaw, Contradiction, and what they do to the protagonist. "
+                "Bold names matter: the tool reads them. Use bold ONLY for character names.",
+                
     "conflict": "Short labelled sections: External, Internal, Relationship, Stakes, Ticking clock.",
     "ending": "Write the chosen ending in about 120 words, including the final image. Then list 2 alternative endings, one line each (as a bulleted list), "
               "with why they are weaker for this story.",
