@@ -4466,3 +4466,11 @@ tr:last-child td {
   .fe-create .btn { width: 100%; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) { .tb-thumb, .tb-skel { transition: none; animation: none; } }
+
+/* banner choice: always shown; unavailable options are greyed with the reason */
+.bc { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.bc-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.bc-seg button:disabled { opacity: .45; cursor: not-allowed; }
+.bc .hint a { color: var(--primary); font-weight: 600; text-decoration: none; }
+.bc .hint a:hover { text-decoration: underline; }
+.pb { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }

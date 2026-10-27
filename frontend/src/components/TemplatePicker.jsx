@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { LayoutTemplate } from "lucide-react";
 import { api } from "../api.js";
 import { getClientId } from "../api/request.js";
+import BannerChoice from "./BannerChoice.jsx";
 import TemplateBrowser from "./TemplateBrowser.jsx";
 import { decorate, getRecent, pushRecent } from "./templateUtils.js";
 
@@ -12,7 +13,6 @@ export default function TemplatePicker({ occasion = "", occasionLabel = "", post
   const clientId = getClientId();
   const [raw, setRaw] = useState(null);                 // null = still loading
   const [recent, setRecent] = useState(() => getRecent(clientId));
-  const [frames, setFrames] = useState({});             // { banner: bool, photo_banner: bool }
   const frameKey = `postcraft:frame:${clientId}`;       // the leader photo choice is remembered per client
 
   useEffect(() => {
@@ -21,11 +21,10 @@ export default function TemplatePicker({ occasion = "", occasionLabel = "", post
   useEffect(() => {
     if (!onFrameChange) return;
     api.templateFrames().then((f) => {
-      setFrames(f);
       let saved = "none";
       try { saved = localStorage.getItem(frameKey) || "none"; } catch { /* storage off */ }
       onFrameChange(f[saved] ? saved : "none");
-    }).catch(() => setFrames({}));
+    }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const templates = useMemo(() => decorate(raw || [], { occasion, postType, recent }), [raw, occasion, postType, recent]);
@@ -43,7 +42,6 @@ export default function TemplatePicker({ occasion = "", occasionLabel = "", post
     onChange(id, t || null);
   };
   const pickFrame = (f) => { onFrameChange?.(f); try { localStorage.setItem(frameKey, f); } catch { /* storage off */ } };
-  const frameOptions = [["photo_banner", "Photo + banner"], ["banner", "Banner only"], ["none", "None"]].filter(([k]) => k === "none" || frames[k]);
 
   if (raw && !raw.length) {
     return (
@@ -76,17 +74,7 @@ export default function TemplatePicker({ occasion = "", occasionLabel = "", post
 
       <TemplateBrowser templates={templates} loading={raw === null} selectedId={value} occasionLabel={occasionLabel} onSelect={choose} allowStandard={allowStandard} />
 
-      {selected && onFrameChange && frameOptions.length > 1 && (
-        <div className="dp-frame">
-          <span className="dp-label">Leader photo and banner</span>
-          <div className="seg" role="radiogroup" aria-label="Leader photo and banner">
-            {frameOptions.map(([k, label]) => (
-              <button key={k} role="radio" aria-checked={frame === k} className={frame === k ? "on" : ""} onClick={() => pickFrame(k)}>{label}</button>
-            ))}
-          </div>
-          <span className="hint">The design is fitted above the banner; texts are kept clear of the photo.</span>
-        </div>
-      )}
+      {selected && onFrameChange && <BannerChoice value={frame} onChange={pickFrame} />}
     </div>
   );
 }

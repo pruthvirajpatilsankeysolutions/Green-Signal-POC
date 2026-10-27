@@ -23,6 +23,7 @@ from api.routes import month_plan as month_plan_routes
 from api.routes import plans as plans_routes
 from api.routes import reactions as reactions_routes
 from api.routes import status as status_routes
+from api.routes import studio as studio_routes
 from config import ASSETS_DIR, OUTPUT_DIR, ROOT
 from storage import clients
 
@@ -50,6 +51,16 @@ app.include_router(reactions_routes.router)
 app.include_router(drafts_routes.router)
 app.include_router(templates_routes.router)
 app.include_router(designs_routes.router)
+app.include_router(studio_routes.public)
+app.include_router(studio_routes.router)
+
+
+@app.on_event("startup")
+def start_story_studio():
+    """Housekeeping for Story Studio at start-up."""
+    from story import jobs as story_jobs, migrate as story_migrate
+    story_migrate.copy_legacy()               # stories made before Story Studio became its own tool are copied across, once
+    story_jobs.recover()                      # a Story Studio step that was running when the server stopped is marked failed
 
 # ---------------------------------------------------------------- unknown API routes: a clear 404
 # (without this, the React catch-all below answers a POST to a missing API route with a confusing 405)
@@ -67,6 +78,13 @@ app.mount("/files/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 DIST = ROOT.parent / "frontend" / "dist"
 if DIST.exists():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="web-assets")
+
+    @app.get("/studio")
+    @app.get("/studio/{full_path:path}")
+    def studio_spa(full_path: str = ""):
+        """Story Studio is its own page (studio.html), not part of the client app."""
+        file = DIST / "studio.html"
+        return FileResponse(file) if file.exists() else FileResponse(DIST / "index.html")
 
     @app.get("/{full_path:path}")
     def spa(full_path: str):

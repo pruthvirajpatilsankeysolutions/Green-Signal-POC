@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { useStatus } from "../App.jsx";
 import CreatedNotice from "../components/CreatedNotice.jsx";
 import FeedPreview from "../components/FeedPreview.jsx";
+import PostBanner from "../components/PostBanner.jsx";
 import Notice from "../components/Notice.jsx";
 import TemplatePicker from "../components/TemplatePicker.jsx";
 
@@ -235,6 +236,7 @@ function TypeForm({ type, lang, onCreated }) {
           <div className="result">
             <CreatedNotice draft={draft} />
             {draft.warnings.map((w) => <Notice key={w} kind="warning">{w}</Notice>)}
+            <PostBanner draft={draft} onChanged={(d) => { setDraft(d); onCreated(); }} />
             <FeedPreview draft={draft} />
           </div>
         )}

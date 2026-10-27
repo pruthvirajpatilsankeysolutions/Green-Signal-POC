@@ -10,6 +10,7 @@ import FeedPreview from "../components/FeedPreview.jsx";
 import CreatedNotice from "../components/CreatedNotice.jsx";
 import MonthPlanTable from "../components/MonthPlanTable.jsx";
 import Notice from "../components/Notice.jsx";
+import PostBanner from "../components/PostBanner.jsx";
 import PlanPanel from "../components/PlanPanel.jsx";
 import TemplatePicker from "../components/TemplatePicker.jsx";
 
@@ -531,6 +532,7 @@ function FestivalEditor({ fest, imageAi, onCreated }) {
       {draft && (
         <div className="result">
           <CreatedNotice draft={draft} label="Poster" />
+          <PostBanner draft={draft} onChanged={(d) => { setDraft(d); onCreated(); }} />
           <FeedPreview draft={draft} />
           {draft.warnings.map((w) => <Notice key={w} kind="warning">{w}</Notice>)}
         </div>

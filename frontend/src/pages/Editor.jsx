@@ -19,6 +19,26 @@ FabricObject.ownDefaults.originY = "top";
 // Pictures draw straight onto the page (no low-quality cached copy), so the high-quality
 // smoothing below applies to them when they are shown smaller than their real size.
 FabricImage.ownDefaults.objectCaching = false;
+// Texts are drawn straight onto the page too: Fabric's cached copy of a text softens small text
+// (measured: small text 14% less sharp than a perfect rendering; drawn directly: 2%).
+Textbox.ownDefaults.objectCaching = false;
+
+// Styled ranges imported from a PPTX ({line, start, end} in UTF-16 units) -> Fabric styles, counted with
+// Fabric's own grapheme split (a Devanagari syllable is one position for Fabric). Same as the server engine.
+function applyRunStyles(o) {
+  if (!o.runStyles || !o.runStyles.length) return;
+  const lines = String(o.text).split("\n"), styles = {};
+  for (const rs of o.runStyles) {
+    const line = lines[rs.line];
+    if (line == null) continue;
+    let at = 0;
+    util.string.graphemeSplit(line).forEach((g, gi) => {
+      if (at >= rs.start && at < rs.end) (styles[rs.line] = styles[rs.line] || {})[gi] = { ...rs.style };
+      at += g.length;
+    });
+  }
+  o.set({ styles }); o.runStyles = null;
+}
 
 // The background always fills the whole board and can't be selected, moved or resized (like Canva).
 // It is changed only from the Background tab. Also repairs designs saved with a moved background.
@@ -69,7 +89,7 @@ const portableSources = (json) => {
 
 // saved with every design; "slot" (and its fitting rules) marks what the app fills in a template
 const EXTRA = ["name", "isBackground", "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls",
-  "slot", "minSize", "maxLines", "sourceFont", "sourceFamily", "vAlign", "boxTop", "boxHeight"];
+  "slot", "minSize", "maxLines", "sourceFont", "sourceFamily", "vAlign", "boxTop", "boxHeight", "textTransform", "flowAfter"];
 const EMOJIS = ["🪔", "🎉", "🎊", "✨", "🌸", "🌼", "🌺", "🏵️", "🌻", "🌷", "💐", "🌹", "🙏", "👏", "🤝", "💪",
   "❤️", "🧡", "💛", "💚", "💙", "💜", "⭐", "🌟", "🔥", "🎁", "🍬", "🍭", "🍰", "🎂", "🧁", "🍫",
   "🥳", "🎈", "🎀", "🪷", "🕉️", "🚩", "🇮🇳", "🏏", "🏆", "🥇", "📢", "📍", "📞", "✅", "☀️", "🌙"];
@@ -353,6 +373,7 @@ export default function Editor() {
         history.current.paused = true;
         if (data.saved) {
           await c.loadFromJSON(portableSources(data.saved));
+          c.getObjects().forEach((o) => { if (o.type === "textbox") applyRunStyles(o); });
           if (!c.backgroundColor) c.backgroundColor = "#ffffff";      // designs without a background colour: white, never transparent
         } else {
           const st = data.starter;

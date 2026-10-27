@@ -33,5 +33,19 @@
   "weight": "200 1000",
   "group": "added",
   "core": false
+ },
+ {
+  "family": "Cardo",
+  "file": "added/Cardo-Cardo-Regular.ttf",
+  "weight": "400",
+  "group": "added",
+  "core": false
+ },
+ {
+  "family": "Cardo",
+  "file": "added/Cardo-Cardo-Bold.ttf",
+  "weight": "700",
+  "group": "added",
+  "core": false
  }
 ]

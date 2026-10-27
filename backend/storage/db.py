@@ -150,6 +150,25 @@ class PostPlan(Base):
     updated_at: Mapped[str] = mapped_column(String(20), default=now_text)
 
 
+class StudioStory(Base):
+    """A story in Story Studio, the agency's own tool: it belongs to no client. Stages, bible, story, validation and screenplay are JSON."""
+    __tablename__ = "studio_stories"
+    id: Mapped[str] = mapped_column(String(12), primary_key=True)
+    title: Mapped[str] = mapped_column(Text, default="")
+    brief: Mapped[dict] = mapped_column(JSON, default=dict)
+    notes: Mapped[str] = mapped_column(Text, default="")                     # internal notes on the idea (guidance for the concept only)
+    directions: Mapped[list] = mapped_column(JSON, default=list)             # the writer's directions from retries: [{"stage","text"}]
+    stages: Mapped[dict] = mapped_column(JSON, default=dict)                 # {stage: {status, draft, approved, warnings, facts, retries, edited}}
+    story: Mapped[str] = mapped_column(Text, default="")
+    story_prev: Mapped[str] = mapped_column(Text, default="")                # the draft before a repair or revision (one step back)
+    checks: Mapped[list] = mapped_column(JSON, default=list)                 # objective checks on the story
+    validation: Mapped[dict] = mapped_column(JSON, default=dict)             # the validator's normalized report
+    screenplay: Mapped[dict] = mapped_column(JSON, default=dict)             # {plan, scenes, fountain, warnings}
+    job: Mapped[dict] = mapped_column(JSON, default=dict)                    # the running or last background step
+    created_at: Mapped[str] = mapped_column(String(20), default=now_text)
+    updated_ts: Mapped[float] = mapped_column(Float, default=time.time, index=True)
+
+
 NEW_COLUMNS = [
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone VARCHAR(40) DEFAULT ''",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''",

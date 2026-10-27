@@ -6,4 +6,5 @@ export const draftsApi = {
   approve: (id) => request(`/api/drafts/${id}/approve`, { method: "POST" }),
   reject: (id) => request(`/api/drafts/${id}/reject`, { method: "POST" }),
   rewrite: (id, instruction) => request(`/api/drafts/${id}/rewrite`, json({ instruction })),
+  changeBanner: (id, frame) => request(`/api/drafts/${id}/frame`, json({ frame })),      // same post, another banner option
 };

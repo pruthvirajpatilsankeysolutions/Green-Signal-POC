@@ -21,6 +21,11 @@ CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-5-5")
 IMAGE_MODEL = os.getenv("IMAGE_MODEL", "gpt-image-2")
 IMAGE_QUALITY = os.getenv("IMAGE_QUALITY", "medium")  # low / medium / high
 
+# ---------- Story Studio ----------
+STORY_MODEL = os.getenv("STORY_MODEL", "")             # model for stories (default: GEMINI_MODEL). Use your strongest model for long, consistent stories.
+STORY_MAX_TOKENS = int(os.getenv("STORY_MAX_TOKENS", "32000"))
+STUDIO_ACCESS_KEY = os.getenv("STUDIO_ACCESS_KEY", "")      # protects Story Studio (/studio). Empty = open to anyone who can reach the server.
+
 # ---------- poster sizes (width, height) ----------
 SIZES = {
     "feed": (1080, 1080),  # square post, same as the client's Instagram posters
