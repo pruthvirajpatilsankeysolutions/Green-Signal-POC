@@ -1,9 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import {
-  ArrowUpRight, CalendarHeart, Camera, CheckCircle2, ChevronRight, Feather, History as HistoryIcon, LayoutDashboard, Newspaper, PlusSquare, Users, LayoutTemplate,
+  CalendarHeart, Camera, CheckCircle2, ChevronDown, Feather, History as HistoryIcon, LayoutDashboard, LayoutTemplate, Menu, Newspaper, Plus, PlusSquare, Users, X,
 } from "lucide-react";
 import { api, getClientId, setClientId } from "./api.js";
+import { Splitter, usePaneWidth } from "./components/Splitter.jsx";
+import StudioHost from "./studio/StudioHost.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Festivals from "./pages/Festivals.jsx";
 import EventPage from "./pages/EventPage.jsx";
@@ -17,6 +19,11 @@ import CreatePost from "./pages/CreatePost.jsx";
 
 const StatusContext = createContext({ status: null, refresh: () => { } });
 export const useStatus = () => useContext(StatusContext);
+
+// A page can show a pane on the right of the layout (the Dashboard shows "Waiting for approval" there).
+// `slot` is the element to draw into; the page tells the layout it is using it with setHasRight.
+const RightPaneContext = createContext({ slot: null, setHasRight: () => { } });
+export const useRightPane = () => useContext(RightPaneContext);
 
 const APP_NAME = "Postcraft";
 
@@ -40,9 +47,9 @@ const NAV = [
     ],
   },
   {
-    // Story Studio is a separate tool (its own page at /studio), so this is a plain link, opened in a new tab
-    title: "Tools",
-    items: [{ href: "/studio", label: "Story Studio", icon: Feather, external: true }],
+    // Story Studio opens inside this app. On a computer it is in the icon strip; this group is the way to it on a phone.
+    title: "Tools", phoneOnly: true,
+    items: [{ to: "/studio", label: "Story Studio", icon: Feather }],
   },
   {
     title: "Settings",
@@ -61,6 +68,16 @@ export default function App() {
   const [error, setError] = useState("");
   const [clientKey, setClientKey] = useState(getClientId());
   const { pathname } = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);            // the menu on a phone
+  const [slot, setSlot] = useState(null);
+  const [hasRight, setHasRight] = useState(false);
+  const rightPane = useMemo(() => ({ slot, setHasRight }), [slot]);
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
+  const isStudio = pathname === "/studio" || pathname.startsWith("/studio/");
+  // the user can drag the edge of the menu and of the pane on the right
+  const [menuW, setMenuW, resetMenuW] = usePaneWidth("pc.menuW", 200, 420);
+  const [rightW, setRightW, resetRightW] = usePaneWidth("pc.rightW", 300, 640);
+  const menuRef = useRef(null);
 
   const refresh = useCallback(() => {
     api.status().then((s) => {
@@ -95,75 +112,100 @@ export default function App() {
 
   return (
     <StatusContext.Provider value={{ status, refresh }}>
-      <div className="app">
-        <aside className="sidebar">
-          <div className="logo">
-            <img className="logo-img" src="/logo.png" alt="" aria-hidden="true" />
-            <span className="logo-name">{APP_NAME}</span>
-          </div>
-
-          <nav className="nav" aria-label="Main">
-            {NAV.map((group, gi) => (
-              <div key={gi} className="nav-group">
-                {group.title && <div className="nav-title">{group.title}</div>}
-                {group.items.filter((item) => allowed(item.feature)).map(({ to, href, external, label, icon: Icon, end, badge }) => external ? (
-                  <a key={href} href={href} target="_blank" rel="noopener noreferrer" className="nav-link" title={`${label} opens in a new tab`}>
-                    <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
-                    <span>{label}</span>
-                    <ArrowUpRight size={14} className="nav-ext" aria-hidden="true" />
-                  </a>
-                ) : (
-                  <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
-                    <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
-                    <span>{label}</span>
-                    {badge && status?.counts?.[badge] > 0 && <span className="nav-count">{status.counts[badge]}</span>}
-                  </NavLink>
-                ))}
-              </div>
-            ))}
+      <RightPaneContext.Provider value={rightPane}>
+        <div className={`sh${isStudio ? " is-studio" : ""}`} data-menu={menuOpen ? "open" : "closed"}
+             style={{ "--menu-w": menuW ? `${menuW}px` : undefined, "--right-w": rightW ? `${rightW}px` : undefined }}>
+          {/* the two products: this app, and Story Studio */}
+          <nav className="sh-rail" aria-label="Products">
+            <Link to="/" className="sh-logo" aria-label={APP_NAME} title={APP_NAME}>
+              <img src="/logo-mark-white.png" alt="" aria-hidden="true" />
+            </Link>
+            <Link to="/" className={`sh-rb${isStudio ? "" : " on"}`} aria-label={`${APP_NAME}: Dashboard`} title={APP_NAME}><LayoutDashboard aria-hidden="true" /></Link>
+            <Link to="/studio" className={`sh-rb${isStudio ? " on" : ""}`} aria-label="Story Studio" title="Story Studio"><Feather aria-hidden="true" /></Link>
           </nav>
 
-          <div className="sidebar-foot">
-            <span className={`dot ${aiReady ? "ok" : "warn"}`} aria-hidden="true" />
-            <span>{status ? (aiReady ? "AI connected" : "AI key missing in .env") : "Connecting…"}</span>
+          {isStudio ? (
+          /* Story Studio fills the page, with its own list and panes */
+          <div className="sh-studio">
+            <Routes><Route path="/studio/*" element={<StudioHost />} /></Routes>
           </div>
-        </aside>
-
-        <div className="workspace">
-          <header className="topbar">
-            <div className="crumbs">
-              <span className="crumb-muted">{client?.name || "Workspace"}</span>
-              <ChevronRight size={14} aria-hidden="true" className="crumb-sep" />
-              <span>{pageName(pathname)}</span>
+          ) : (
+          <>
+          {/* the menu */}
+          <aside className="sh-menu" aria-label="Menu" ref={menuRef}>
+            <div className="sh-mh">
+              <h2>{APP_NAME}</h2>
+              <span className="sh-mh-acts">
+                {allowed("create") && <Link to="/create" className="sh-add" title="Create post" aria-label="Create post"><Plus aria-hidden="true" /></Link>}
+                <button type="button" className="sh-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X aria-hidden="true" /></button>
+              </span>
             </div>
-            {client && (
-              <label className="client-chip" title="Switch client">
-                <span className="avatar" aria-hidden="true">{client.name.slice(0, 1)}</span>
-                <span className="client-cat">{client.category}</span>
-                <select className="client-select" value={client.id} onChange={(e) => switchClient(e.target.value)}
-                  aria-label="Current client">
-                  {(status.clients || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </label>
-            )}
-          </header>
+            <nav className="sh-scroll" aria-label="Main">
+              {NAV.map((group, gi) => (
+                <div key={gi} className={`sh-group${group.phoneOnly ? " sh-phone-only" : ""}`}>
+                  {group.title && <div className="sh-gh">{group.title}</div>}
+                  {group.items.filter((item) => allowed(item.feature)).map(({ to, label, icon: Icon, end, badge }) => (
+                    <NavLink key={to} to={to} end={end} className={({ isActive }) => `sh-it${isActive ? " active" : ""}`}>
+                      <span className="sh-l"><Icon aria-hidden="true" /><span>{label}</span></span>
+                      {badge && status?.counts?.[badge] > 0 && <span className="sh-cnt">{status.counts[badge]}</span>}
+                    </NavLink>
+                  ))}
+                </div>
+              ))}
+            </nav>
+            <div className="sh-foot">
+              <span className={`sh-dot ${aiReady ? "ok" : "warn"}`} aria-hidden="true" />
+              <span>{status ? (aiReady ? "AI connected" : "AI key missing in .env") : "Connecting…"}</span>
+            </div>
+          </aside>
+          <Splitter className="sh-split-m" label="Resize the menu" min={200} max={420} grows="right"
+                    getWidth={() => menuRef.current.getBoundingClientRect().width} onChange={setMenuW} onReset={resetMenuW} />
 
-          <main className="content" key={clientKey}>
-            {error && <div className="notice error">{error}</div>}
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/create" element={onlyFor("create", <CreatePost />)} />
-              <Route path="/festivals" element={onlyFor("festivals", <Festivals />)} />
-              <Route path="/events" element={onlyFor("events", <EventPage />)} />
-              <Route path="/reactions" element={onlyFor("reactions", <Reaction />)} />
-              <Route path="/approvals" element={<Approvals />} />
-              <Route path="/history" element={<History />} />
-              <Route path="/clients" element={<Clients onChanged={refresh} onSwitch={switchClient} />} />
-              <Route path="/templates" element={<Templates />} />
-            </Routes>
-          </main>
+          <div className={`sh-work${hasRight ? " has-right" : ""}`}>
+            <div className="sh-main">
+              <header className="sh-crumbs">
+                <nav className="sh-crumbnav" aria-label="Breadcrumb">
+                  <button type="button" className="sh-burger" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu aria-hidden="true" /></button>
+                  <span className="sh-mini" aria-hidden="true"><img src="/logo-mark-white.png" alt="" /></span>
+                  <span className="sh-muted sh-hide-m">{APP_NAME}</span>
+                  <span className="sh-sep sh-hide-m" aria-hidden="true">/</span>
+                  <b>{pageName(pathname)}</b>
+                </nav>
+                {client && (
+                  <label className="sh-chip" title="Switch client">
+                    <span className="sh-av" aria-hidden="true">{client.name.slice(0, 1)}</span>
+                    <span className="sh-cat">{client.category}</span>
+                    <select className="sh-sel mr" value={client.id} onChange={(e) => switchClient(e.target.value)} aria-label="Current client">
+                      {(status.clients || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <ChevronDown className="sh-chev" aria-hidden="true" />
+                  </label>
+                )}
+              </header>
+
+              <main className={`content${pathname === "/" ? " content-flush" : ""}`} key={clientKey}>
+                {error && <div className="notice error">{error}</div>}
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/create" element={onlyFor("create", <CreatePost />)} />
+                  <Route path="/festivals" element={onlyFor("festivals", <Festivals />)} />
+                  <Route path="/events" element={onlyFor("events", <EventPage />)} />
+                  <Route path="/reactions" element={onlyFor("reactions", <Reaction />)} />
+                  <Route path="/approvals" element={<Approvals />} />
+                  <Route path="/history" element={<History />} />
+                  <Route path="/clients" element={<Clients onChanged={refresh} onSwitch={switchClient} />} />
+                  <Route path="/templates" element={<Templates />} />
+                </Routes>
+              </main>
+            </div>
+            <aside className="sh-right" ref={setSlot} hidden={!hasRight} />
+            {hasRight && <Splitter className="sh-split-r" label="Resize the right pane" min={300} max={640} grows="left"
+                                   getWidth={() => slot.getBoundingClientRect().width} onChange={setRightW} onReset={resetRightW} />}
+          </div>
+          </>
+          )}
         </div>
-      </div>
+      </RightPaneContext.Provider>
     </StatusContext.Provider>
   );
 }

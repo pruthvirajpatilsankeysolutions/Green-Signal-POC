@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, BookOpen, Check, CheckCircle2, Clapperboard, Download, FileText, Pencil, RotateCcw, ShieldCheck } from "../icons.jsx";
 import { useStudio } from "../useStudio.jsx";
-import { LENGTH, PROBLEM_TYPES, STAGE_HELP, repairNote } from "../data.js";
+import { LENGTH, PROBLEM_TYPES, SP, STAGE_HELP, repairNote } from "../data.js";
 import Markdown from "./Markdown.jsx";
 import ReviseDialog from "./ReviseDialog.jsx";
 import { Spinner } from "./ui.jsx";
@@ -94,7 +94,7 @@ export default function NextStep() {
   } else if (mode === "check") {
     content = (
       <>
-        <Head title="Not validated"><button className="btn" onClick={() => nav(`/story/${v.id}/read`)}><BookOpen />Read</button><button className="btn k" id="primary-action" disabled={off} onClick={() => act("validate", (a) => a.validate(v.id))}><ShieldCheck />Validate</button></Head>
+        <Head title="Not validated"><button className="btn" onClick={() => nav(`${SP}/story/${v.id}/read`)}><BookOpen />Read</button><button className="btn k" id="primary-action" disabled={off} onClick={() => act("validate", (a) => a.validate(v.id))}><ShieldCheck />Validate</button></Head>
         <div className="rbody">{banner}<Sec icon={ShieldCheck} label="Validation"><p className="plain">The story is written but has not been checked against what you approved. Validate it to see whether it follows the canon.</p></Sec></div>
       </>
     );
@@ -105,7 +105,7 @@ export default function NextStep() {
         <Head title="Validation"><button className="btn" disabled={off} onClick={() => setRevise(true)}><Pencil />Revise</button><button className="btn k" id="primary-action" disabled={off} onClick={() => act("validate", (a) => a.validate(v.id))}><ShieldCheck />Validate</button></Head>
         <div className="rbody">
           {banner}
-          <div className="sec"><div className="sl2"><ShieldCheck />Result<button className="lk" onClick={() => nav(`/story/${v.id}/read`)}><BookOpen />Read story</button></div>
+          <div className="sec"><div className="sl2"><ShieldCheck />Result<button className="lk" onClick={() => nav(`${SP}/story/${v.id}/read`)}><BookOpen />Read story</button></div>
             <div className="score"><b>{val.score}</b><span>/ 100 · {probs.length} hard {probs.length === 1 ? "problem" : "problems"}</span></div>
             <div className="meter"><i style={{ width: `${val.score}%`, background: "#d92d20" }} /></div>
             {repairNote(val.repair) && <div className="note">{repairNote(val.repair)}</div>}
@@ -122,12 +122,12 @@ export default function NextStep() {
       <>
         <Head title="Validation">
           <button className="btn" onClick={() => save(v.id, "story.md", "the story")}><Download />Story</button>
-          {sp.fountain ? <button className="btn k" id="primary-action" onClick={() => nav(`/story/${v.id}/screenplay`)}><Clapperboard />Screenplay</button>
-            : <button className="btn k" id="primary-action" disabled={off} onClick={() => act("screenplay", (a) => a.writeScreenplay(v.id)).then(() => nav(`/story/${v.id}/screenplay`))}><Clapperboard />Write screenplay</button>}
+          {sp.fountain ? <button className="btn k" id="primary-action" onClick={() => nav(`${SP}/story/${v.id}/screenplay`)}><Clapperboard />Screenplay</button>
+            : <button className="btn k" id="primary-action" disabled={off} onClick={() => act("screenplay", (a) => a.writeScreenplay(v.id)).then(() => nav(`${SP}/story/${v.id}/screenplay`))}><Clapperboard />Write screenplay</button>}
         </Head>
         <div className="rbody">
           {banner}
-          <div className="sec"><div className="sl2"><ShieldCheck />Result<button className="lk" onClick={() => nav(`/story/${v.id}/read`)}><BookOpen />Read story</button></div>
+          <div className="sec"><div className="sl2"><ShieldCheck />Result<button className="lk" onClick={() => nav(`${SP}/story/${v.id}/read`)}><BookOpen />Read story</button></div>
             <div className="score"><b>{val.score}</b><span>/ 100 · follows the approved canon</span></div>
             <div className="meter"><i style={{ width: `${val.score}%`, background: "#16a34a" }} /></div></div>
           {(val.strengths || []).length > 0 && <Sec icon={CheckCircle2} label="What works"><ul className="ls">{val.strengths.map((t, i) => <li className="wrap" key={i}><Check className="ic ok-i" /><span className="v mr" style={{ color: "var(--ink)", fontSize: 14 }}>{t}</span></li>)}</ul></Sec>}

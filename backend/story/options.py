@@ -48,6 +48,7 @@ FORMAT_NOTES = {
 }
 
 
+
 def sizes(brief):
     return SIZES.get((brief or {}).get("length"), SIZES["Medium"])
 

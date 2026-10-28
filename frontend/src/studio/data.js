@@ -1,3 +1,6 @@
+// Story Studio lives inside the app at /studio
+export const SP = "/studio";
+
 // Plain helpers the pages share: stage names, how to word a state, relative times, short notes about an approved stage.
 export const STAGE_LABELS = ["Concept", "Logline", "Characters", "Conflict", "Ending", "Structure", "Beats", "Outline", "Story", "Screenplay"];
 export const STATE = { your: ["Your turn", "your"], bad: ["Needs attention", "bad"], ok: ["Validated", "ok"], working: ["Working…", "work"] };

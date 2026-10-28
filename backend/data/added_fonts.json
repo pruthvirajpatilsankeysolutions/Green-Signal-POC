@@ -47,5 +47,12 @@
   "weight": "700",
   "group": "added",
   "core": false
+ },
+ {
+  "family": "Inter",
+  "file": "added/Inter-Inter_opsz_wght_.ttf",
+  "weight": "100 900",
+  "group": "added",
+  "core": false
  }
 ]

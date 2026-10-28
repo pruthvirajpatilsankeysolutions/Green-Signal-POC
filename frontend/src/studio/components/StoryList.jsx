@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, ArrowUpDown, CheckCircle2, ChevronDown, Clapperboard, Layers, Plus, Search, UserCheck } from "../icons.jsx";
+import { AlertCircle, ArrowUpDown, CheckCircle2, ChevronDown, ChevronLeft, Clapperboard, HelpCircle, Layers, LogOut, Plus, Search, Settings, ShieldCheck, ShieldOff, UserCheck } from "../icons.jsx";
 import { useStudio } from "../useStudio.jsx";
 import { STATE, rowState } from "../data.js";
 import { Pop, Spinner } from "./ui.jsx";
@@ -8,14 +8,27 @@ const FILTERS = [["all", Layers, "All stories"], ["your", UserCheck, "Your turn"
 const SORTS = [["recent", "Recent"], ["title", "Title"], ["progress", "Progress"]];
 
 // The stories pane: search, what needs you, and the list.
-export default function StoryList() {
-  const { stories, visible, selectedId, open, filter, setFilter, q, setQ, sort, setSort, searchRef, setNewOpen, loadError } = useStudio();
+export default function StoryList({ protectedSite, onSignOut, onExit }) {
+  const { stories, visible, selectedId, open, filter, setFilter, q, setQ, sort, setSort, searchRef, setNewOpen, setHelpOpen, loadError } = useStudio();
+  const [tools, setTools] = useState(null);
   const [openStatus, setOpenStatus] = useState(true);
   const [menu, setMenu] = useState(null);
   const count = (k) => (stories || []).filter((s) => (k === "all" ? true : k === "screen" ? s.has_screenplay : s.state === k)).length;
   return (
     <section className="list" aria-label="Stories">
-      <div className="lh"><h2>Stories</h2><button className="add" aria-label="New story" title="New story" onClick={() => setNewOpen(true)}><Plus /></button></div>
+      <div className="lh">
+        <button className="back-pc" onClick={onExit} aria-label="Back to Postcraft" title="Back to Postcraft"><ChevronLeft /></button>
+        <h2>Stories</h2>
+        <span className="lh-acts">
+          <button className="ib" title="How Story Studio works" aria-label="Help" onClick={() => setHelpOpen(true)}><HelpCircle /></button>
+          <button className="ib" title="Settings" aria-label="Settings" onClick={(e) => { e.stopPropagation(); setTools(e.currentTarget.getBoundingClientRect()); }}><Settings /></button>
+          <button className="add" aria-label="New story" title="New story" onClick={() => setNewOpen(true)}><Plus /></button>
+        </span>
+      </div>
+      {tools && <Pop anchor={tools} onClose={() => setTools(null)} width={250} items={[
+        { label: protectedSite ? "Protected by an access key" : "Open: no access key is set", icon: protectedSite ? <ShieldCheck size={16} /> : <ShieldOff size={16} />, onClick: () => {} },
+        ...(protectedSite ? [{ label: "Sign out", icon: <LogOut size={16} />, onClick: onSignOut }] : []),
+      ]} />}
       <label className="lsearch"><Search /><span className="sr">Search stories</span><input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search stories…" autoComplete="off" /></label>
       <button className="gl" aria-expanded={openStatus} onClick={() => setOpenStatus(!openStatus)}><ChevronDown />Status</button>
       <div className="status" hidden={!openStatus}>

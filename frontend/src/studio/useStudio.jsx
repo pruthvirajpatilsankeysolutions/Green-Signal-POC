@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useMatch, useNavigate } from "react-router-dom";
 import { studio } from "./api.js";
-import { progressOf } from "./data.js";
+import { SP, progressOf } from "./data.js";
 
 const Ctx = createContext(null);
 export const useStudio = () => useContext(Ctx);
@@ -14,7 +14,7 @@ const useWide = () => {
 // Everything the Story Studio pages share: the list, the selected story, filters, and every action (so each one is handled the same way).
 export function StudioProvider({ children }) {
   const navigate = useNavigate();
-  const match = useMatch("/story/:id/*");
+  const match = useMatch(`${SP}/story/:id/*`);
   const routeId = match?.params.id || null;
   const wide = useWide();
   const [options, setOptions] = useState(null);
@@ -51,7 +51,7 @@ export function StudioProvider({ children }) {
     if (!selectedId) { setStory(null); return undefined; }
     let alive = true;
     setStory((s) => (s && s.id === selectedId ? s : null));
-    studio.story(selectedId).then((d) => alive && setStory(d)).catch((e) => { if (alive && e.message === "Story not found.") navigate("/", { replace: true }); });
+    studio.story(selectedId).then((d) => alive && setStory(d)).catch((e) => { if (alive && e.message === "Story not found.") navigate(SP, { replace: true }); });
     return () => { alive = false; };
   }, [selectedId, navigate]);
 
@@ -81,16 +81,16 @@ export function StudioProvider({ children }) {
 
   const create = async (brief) => {
     const next = await studio.create(brief);                      // errors are shown by the form
-    setStory(next); refreshList(); navigate(`/story/${next.id}`);
+    setStory(next); refreshList(); navigate(`${SP}/story/${next.id}`);
     return next;
   };
   const remove = async (id) => {
     await act("delete", (api) => api.remove(id));
-    setStory(null); navigate("/"); refreshList();
+    setStory(null); navigate(SP); refreshList();
   };
   const save = (id, name, label) => studio.downloadFile(id, name).catch((e) => flash(e.message || `Could not download ${label}.`));
   const saveProject = (id) => studio.downloadProject(id).catch((e) => flash(e.message));
-  const open = (id) => navigate(`/story/${id}`);
+  const open = (id) => navigate(`${SP}/story/${id}`);
 
   const value = { options, stories, story, visible, selectedId, filter, setFilter, q, setQ, sort, setSort, busy, error, setError, toast, flash, loadError,
                   act, create, remove, save, saveProject, open, refreshList, wide, searchRef, routeId, newOpen, setNewOpen, helpOpen, setHelpOpen };

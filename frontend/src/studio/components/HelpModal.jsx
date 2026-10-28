@@ -15,4 +15,6 @@ export default function HelpModal() {
       <p className="help" style={{ margin: 0 }}>Nothing after a stage is written until you have answered. Read the stories yourself: the AI can still miss a problem.</p>
     </Modal>
   );
+  
 }
+

@@ -26,7 +26,7 @@ STAGE_GUIDE = {
     "logline": "ONE sentence, max 35 words: who, wants what, what stands in the way, and what happens if they fail. "
                "Then one short line starting with *Why it works:*.",
     "characters": "A cast of one protagonist, one opposing force (the antagonist, or in a family drama the person or pressure that stands against the want) "
-                "and 2-4 supporting characters. Write the opposing force's goal first. Each character: a bold name + role line, with age and family relationship "
+                "and 5-6 supporting characters. Write the opposing force's goal first. Each character: a bold name + role line, with age and family relationship "
                 "stated plainly (they are canon). For the protagonist and the opposing force, one line each: Want (concrete, playable in a scene); Why; "
                 "Need (what they do not know they need); Flaw; Past (one event before page 1 that explains the flaw); Contradiction; Habit (a ritual that shows "
                 "them without dialogue); Voice; Never (one thing they would never do); Relationships (closest to / should be close but is not / who has power "

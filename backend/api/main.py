@@ -79,13 +79,6 @@ DIST = ROOT.parent / "frontend" / "dist"
 if DIST.exists():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="web-assets")
 
-    @app.get("/studio")
-    @app.get("/studio/{full_path:path}")
-    def studio_spa(full_path: str = ""):
-        """Story Studio is its own page (studio.html), not part of the client app."""
-        file = DIST / "studio.html"
-        return FileResponse(file) if file.exists() else FileResponse(DIST / "index.html")
-
     @app.get("/{full_path:path}")
     def spa(full_path: str):
         file = DIST / full_path

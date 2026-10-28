@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, BookOpen, CheckCircle2, ChevronLeft, Clapperboard, Download, Feather, Pencil, ShieldCheck, Undo2 } from "../icons.jsx";
 import { useStudio } from "../useStudio.jsx";
-import { PROBLEM_TYPES, repairNote } from "../data.js";
+import { PROBLEM_TYPES, SP, repairNote } from "../data.js";
 import Markdown from "./Markdown.jsx";
 import ReviseDialog from "./ReviseDialog.jsx";
 import { Spinner } from "./ui.jsx";
@@ -13,10 +13,10 @@ const Crumbs = ({ v, last }) => {
   const nav = useNavigate();
   return (
     <div className="crumbs"><nav>
-      <button className="back" onClick={() => nav(`/story/${v.id}`)} aria-label="Back to the story"><ChevronLeft /></button>
+      <button className="back" onClick={() => nav(`${SP}/story/${v.id}`)} aria-label="Back to the story"><ChevronLeft /></button>
       <span className="mini-logo"><Feather /></span>
-      <button className="crumb hide-m" onClick={() => nav("/")}>Stories</button><span className="s">/</span>
-      <button className="crumb" onClick={() => nav(`/story/${v.id}`)}><span className="mr">{v.title}</span></button><span className="s">/</span><b>{last}</b>
+      <button className="crumb hide-m" onClick={() => nav(SP)}>Stories</button><span className="s">/</span>
+      <button className="crumb" onClick={() => nav(`${SP}/story/${v.id}`)}><span className="mr">{v.title}</span></button><span className="s">/</span><b>{last}</b>
     </nav></div>
   );
 };
@@ -67,7 +67,7 @@ export function ReaderPane() {
             <button className="btn" disabled={!v.words} onClick={() => save(v.id, "story.md", "the story")}><Download />story.md</button>
             <button className="btn" onClick={() => save(v.id, "story_bible.md", "the Story Bible")}><Download />Story Bible</button>
             {v.can_undo && <button className="btn" disabled={off} onClick={() => act("undo", (a) => a.undo(v.id))}><Undo2 />Go back one version</button>}
-            {pass && <button className="btn" onClick={() => nav(`/story/${v.id}/screenplay`)}><Clapperboard />Screenplay</button>}
+            {pass && <button className="btn" onClick={() => nav(`${SP}/story/${v.id}/screenplay`)}><Clapperboard />Screenplay</button>}
           </div></div>
       </div>
       {revise && <ReviseDialog id={v.id} onClose={() => setRevise(false)} />}

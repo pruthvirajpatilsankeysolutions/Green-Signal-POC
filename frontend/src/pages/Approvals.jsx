@@ -84,7 +84,6 @@ export default function Approvals() {
                         <span className="muted">{typeName(d)}, v{d.version}</span>
                         <span className="muted small">{tab === "approved" ? `Approved ${d.approved_at}` : d.created_at}</span>
                       </span>
-                      {d.warnings.length > 0 && <span className="warn-dot" title="Has warnings" />}
                     </button>
                   </li>
                 ))}
@@ -126,7 +125,6 @@ function ReviewPanel({ draft, onDone }) {
           <h2 className="mr">{draft.title}</h2>
           <p className="muted">Version {draft.version}, created {draft.created_at}</p>
         </div>
-        {draft.warnings.map((w) => <Notice key={w} kind="warning">{w}</Notice>)}
 
         <div className="actions">
           <button className="btn primary" disabled={!!busy} onClick={() => act("approve", () => api.approve(draft.id), "approved")}>

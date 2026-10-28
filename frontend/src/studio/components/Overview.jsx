@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, BookMarked, CheckCircle2, ChevronLeft, Clock, Copy, Download, Feather, FileText, Languages, ListChecks, MoreHorizontal, Pencil, ShieldCheck, Trash2, BookOpen, Clapperboard } from "../icons.jsx";
 import { useStudio } from "../useStudio.jsx";
-import { LENGTH, STATE, rel, stageNote } from "../data.js";
+import { LENGTH, SP, STATE, rel, stageNote } from "../data.js";
 import Pipeline from "./Pipeline.jsx";
 import { Pop, Spinner } from "./ui.jsx";
 
@@ -14,6 +14,7 @@ export default function Overview() {
   const { story: v, stories, act, busy, saveProject, remove, flash, setNewOpen } = useStudio();
   const [menu, setMenu] = useState(null);
   const [allFacts, setAllFacts] = useState(false);
+  const rootRef = useRef(null);
   if (!stories) return <div className="center"><p className="loading">Loading…</p></div>;
   if (!stories.length) {
     return (
@@ -33,14 +34,14 @@ export default function Overview() {
   const planning = !v.words;
   const focus = v.stages.find((s) => s.key === v.focus);
   const sp = v.screenplay;
-  const goRight = () => { const b = document.getElementById("primary-action"); b?.scrollIntoView({ block: "nearest", behavior: "smooth" }); b?.focus(); };
+  const goRight = () => { const b = rootRef.current?.getRootNode().getElementById?.("primary-action"); b?.scrollIntoView({ block: "nearest", behavior: "smooth" }); b?.focus(); };
 
   let nextText, nextLabel, nextGo;
   if (running) { nextText = <><b>Working…</b> {v.job.message}</>; nextLabel = null; }
-  else if (v.state === "ok" && sp.fountain) { nextText = <>The screenplay has <b>{sp.written} scenes</b></>; nextLabel = "Open screenplay"; nextGo = () => nav(`/story/${v.id}/screenplay`); }
-  else if (v.state === "ok") { nextText = <>Next: write the <b>screenplay</b> (optional)</>; nextLabel = "Write screenplay"; nextGo = () => act("screenplay", (a) => a.writeScreenplay(v.id)).then(() => nav(`/story/${v.id}/screenplay`)); }
-  else if (v.state === "bad") { nextText = <>Next: <b>fix the problems</b> the validator found</>; nextLabel = "Open the story"; nextGo = () => nav(`/story/${v.id}/read`); }
-  else if (v.words) { nextText = <>Next: <b>validate</b> the story</>; nextLabel = "Open the story"; nextGo = () => nav(`/story/${v.id}/read`); }
+  else if (v.state === "ok" && sp.fountain) { nextText = <>The screenplay has <b>{sp.written} scenes</b></>; nextLabel = "Open screenplay"; nextGo = () => nav(`${SP}/story/${v.id}/screenplay`); }
+  else if (v.state === "ok") { nextText = <>Next: write the <b>screenplay</b> (optional)</>; nextLabel = "Write screenplay"; nextGo = () => act("screenplay", (a) => a.writeScreenplay(v.id)).then(() => nav(`${SP}/story/${v.id}/screenplay`)); }
+  else if (v.state === "bad") { nextText = <>Next: <b>fix the problems</b> the validator found</>; nextLabel = "Open the story"; nextGo = () => nav(`${SP}/story/${v.id}/read`); }
+  else if (v.words) { nextText = <>Next: <b>validate</b> the story</>; nextLabel = "Open the story"; nextGo = () => nav(`${SP}/story/${v.id}/read`); }
   else if (v.focus === "story") { nextText = <>Next: write the <b>story</b></>; nextLabel = "Continue writing"; nextGo = goRight; }
   else if (focus.status === "draft") { nextText = <>Next: review the <b>{focus.title}</b> and accept, edit or retry it</>; nextLabel = "Continue writing"; nextGo = goRight; }
   else { nextText = <>Next: write the <b>{focus.title}</b></>; nextLabel = "Continue writing"; nextGo = goRight; }
@@ -53,10 +54,10 @@ export default function Overview() {
   const factsBad = approved.find((s) => s.facts_error);
 
   return (
-    <div className="center">
+    <div className="center" ref={rootRef}>
       <div className="crumbs">
         <nav>
-          <button className="back" onClick={() => nav("/")} aria-label="Back to stories"><ChevronLeft /></button>
+          <button className="back" onClick={() => nav(SP)} aria-label="Back to stories"><ChevronLeft /></button>
           <span className="mini-logo"><Feather /></span><span className="hide-m">Story Studio</span><span className="s">/</span><span className="hide-m">Stories</span><span className="s">/</span><b className="mr">{v.title}</b>
         </nav>
         <div style={{ display: "flex", gap: 4 }}>
@@ -65,8 +66,8 @@ export default function Overview() {
         </div>
       </div>
       {menu && <Pop anchor={menu} onClose={() => setMenu(null)} items={[
-        ...(v.words ? [{ label: "Read the story", icon: <BookOpen size={16} />, onClick: () => nav(`/story/${v.id}/read`) }] : []),
-        ...(sp.fountain ? [{ label: "Open the screenplay", icon: <Clapperboard size={16} />, onClick: () => nav(`/story/${v.id}/screenplay`) }] : []),
+        ...(v.words ? [{ label: "Read the story", icon: <BookOpen size={16} />, onClick: () => nav(`${SP}/story/${v.id}/read`) }] : []),
+        ...(sp.fountain ? [{ label: "Open the screenplay", icon: <Clapperboard size={16} />, onClick: () => nav(`${SP}/story/${v.id}/screenplay`) }] : []),
         { label: "Copy title", icon: <Copy size={16} />, onClick: () => navigator.clipboard?.writeText(v.title).then(() => flash("Title copied")) },
         { label: "Delete story", icon: <Trash2 size={16} />, danger: true, onClick: () => window.confirm(`Delete "${v.title}"? Its stages, story and screenplay will be lost.`) && remove(v.id) },
       ]} />}
