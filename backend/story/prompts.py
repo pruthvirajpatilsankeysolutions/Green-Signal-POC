@@ -1,7 +1,7 @@
 """What the model is asked at every step. The text comes from the Story Studio references (stages, canon rules, validation).
 Every prompt starts with a TASK line: it names the step in logs and lets tests tell the steps apart."""
 from story import bible
-from story.options import FORMAT_NOTES, MAX_FACTS, MAX_SCENES, STAGE_READS, STAGE_TITLES, WORDS_PER_PAGE, sizes
+from story.options import FORMAT_NOTES, MAX_FACTS, MAX_SCENES, STAGE_READS, STAGE_TITLES, STRUCTURE_HINTS, WORDS_PER_PAGE, sizes
 
 CANON_RULES = """CANON RULES (stories, repairs and screenplays must follow these)
 - Approved material is binding. Do not change any character's motivation, relationship, arc, backstory facts (for example how someone died) or the approved ending.
@@ -51,8 +51,7 @@ STAGE_GUIDE = {
     "conflict": "Short labelled sections: External, Internal, Relationship, Stakes, Ticking clock.",
     "ending": "Write the chosen ending in about 120 words, including the final image. Then list 2 alternative endings, one line each (as a bulleted list), "
               "with why they are weaker for this story.",
-    "structure": "Three acts (or the structure that suits the format; for Indian feature films consider two halves with an interval block). "
-                 "For each act: its purpose, the key turning points, and roughly what share of the story it takes.",
+    "structure": "{structure_hint} For each act or part: its purpose, the key turning points, and roughly what share of the story it takes.",
     "beats": "A numbered beat sheet from Opening Image to Final Image ({beats} beats, numbered 1., 2., ...). Each beat: a bold name, then 1-2 sentences. "
              "Include a beat that pays off every character arc in the Story Bible, and include the approved ending's key actions exactly as approved.",
     "outline": "A scene-by-scene outline ({scenes_lo}-{scenes_hi} scenes), grouped under act headings. Each scene: a short bold title, the location, and 1-2 sentences. "
@@ -68,7 +67,9 @@ def _lang(project):
 
 
 def _bible_block(project):
-    return f"<story_bible>\n{bible.render(project)}</story_bible>"
+    rules = bible.brief_rules(project.get("brief"))
+    block = f"<story_bible>\n{bible.render(project)}</story_bible>"
+    return block + (f"\n\n<brief_rules>\nThe writer's rules for this story. They apply to every stage, the story and the screenplay:\n{rules}\n</brief_rules>" if rules else "")
 
 
 def _reads_block(project, stage):
@@ -84,7 +85,8 @@ def _guide(project, stage):
     s = sizes(project.get("brief"))
     brief = project.get("brief") or {}
     return STAGE_GUIDE[stage].format(beats=s["beats"], scenes_lo=s["scenes"][0], scenes_hi=s["scenes"][1], words=s["words"],
-                                     format_note=FORMAT_NOTES.get(brief.get("content_type"), ""))
+                                     format_note=FORMAT_NOTES.get(brief.get("content_type"), ""),
+                                     structure_hint=STRUCTURE_HINTS.get(brief.get("content_type"), STRUCTURE_HINTS["default"]))
 
 
 # ---------------------------------------------------------------- notes and stages
@@ -180,8 +182,8 @@ def judge_prompt(project, story):
 Validation answers "does the story faithfully follow the approved canon?", not "is it a good story?". Beautiful writing never compensates for a continuity failure.
 
 1. Build a LEDGER while reading: every named character's status changes (alive/injured/dead and the stated cause) and important locations, in story order; every plot-important object or piece of information (where it first appears, how it is obtained, who has it later); key events as CAUSE -> ACTION -> CONSEQUENCE.
-2. Check in this order: a) canon fidelity (motivations, relationships, arcs, backstory facts, conflict and the approved ending match; nothing major added); b) contradictions (the same fact stated two ways); c) causal continuity (capture, arrest, death, rescue or a meaningful arrival with no shown cause is missing_causal_event); d) object/information origin (missing_object_origin / missing_information_origin); e) locations (only plot-important movements or contradictions); f) time order (no consequence before its cause); g) writer directions (nothing the writer removed has come back); h) then prose, emotional development, pacing and escalation.
-3. Hard failure types (any one means FAIL): character_contradiction, relationship_contradiction, ending_contradiction, major_event_contradiction, location_contradiction, temporal_contradiction, missing_causal_event, missing_object_origin, missing_information_origin, unauthorized_major_character, unauthorized_major_plot_device, reintroduced_rejected_element. Unclear emotional motivation, pacing and style are WARNINGS, not hard failures. Every hard failure needs evidence (a short quote or paraphrase) and the smallest fix.
+2. Check in this order: a) canon fidelity (motivations, relationships, arcs, backstory facts, conflict and the approved ending match; nothing major added); b) contradictions (the same fact stated two ways); c) causal continuity (capture, arrest, death, rescue or a meaningful arrival with no shown cause is missing_causal_event); d) object/information origin (missing_object_origin / missing_information_origin); e) locations (only plot-important movements or contradictions); f) time order (no consequence before its cause); g) writer directions (nothing the writer removed has come back); h) the brief rules, if there are any (anything the writer asked to avoid, or a break of the audience rule, is brief_violation); i) then prose, emotional development, pacing and escalation.
+3. Hard failure types (any one means FAIL): character_contradiction, relationship_contradiction, ending_contradiction, major_event_contradiction, location_contradiction, temporal_contradiction, missing_causal_event, missing_object_origin, missing_information_origin, unauthorized_major_character, unauthorized_major_plot_device, reintroduced_rejected_element, brief_violation. Unclear emotional motivation, pacing and style are WARNINGS, not hard failures. Every hard failure needs evidence (a short quote or paraphrase) and the smallest fix.
 4. Score 0-100. With any hard failure the score must be 60 or lower.
 
 Reply as JSON:
@@ -298,4 +300,4 @@ FORMAT RULES (Fountain)
 
 def scene_words(project, count):
     pages = sizes(project["brief"])["pages"]
-    return max(150, min(1500, round(pages * WORDS_PER_PAGE / max(count, 1))))
+    return max(40, min(1500, round(pages * WORDS_PER_PAGE / max(count, 1))))        # 40 so that a one-page advertisement is not padded to three pages

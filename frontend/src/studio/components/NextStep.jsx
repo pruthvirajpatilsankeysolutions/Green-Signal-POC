@@ -2,17 +2,27 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, BookOpen, Check, CheckCircle2, Clapperboard, Download, FileText, Pencil, RotateCcw, ShieldCheck } from "../icons.jsx";
 import { useStudio } from "../useStudio.jsx";
-import { LENGTH, PROBLEM_TYPES, SP, STAGE_HELP, repairNote } from "../data.js";
+import { PROBLEM_TYPES, SP, STAGE_HELP, lengthText, repairNote } from "../data.js";
 import Markdown from "./Markdown.jsx";
 import ReviseDialog from "./ReviseDialog.jsx";
 import { Spinner } from "./ui.jsx";
 
 const Sec = ({ icon: Icon, label, link, children }) => <div className="sec"><div className="sl2"><Icon />{label}{link}</div>{children}</div>;
 
+// These two live OUTSIDE NextStep on purpose. A component defined inside another component is a new component on every render,
+// so React throws its DOM away and rebuilds it; a text box inside it would lose focus after every typed character.
+const Head = ({ title, children }) => <div className="rh"><h2 className="mr">{title}</h2><div className="acts">{children}</div></div>;
+const Dirs = ({ label, value, onChange }) => (
+  <Sec icon={RotateCcw} label={<>{label} <span style={{ color: "var(--faint)" }}>(optional)</span></>}>
+    <input className="in mr" value={value} onChange={(e) => onChange(e.target.value)} placeholder="e.g. darker, no villain, set in Pune" aria-label="Direction" />
+    <p className="help">A direction is remembered in the Story Bible and still applies to later stages.</p>
+  </Sec>
+);
+
 // The right pane: what to do next with this story. The writer answers here: Accept, Edit or Retry; or fix, validate, read, write the screenplay.
 export default function NextStep() {
   const nav = useNavigate();
-  const { story: v, act, busy, save } = useStudio();
+  const { story: v, act, busy, save, options } = useStudio();
   const [direction, setDirection] = useState("");
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
@@ -34,13 +44,6 @@ export default function NextStep() {
   );
   const write = (retry) => act("write", (a) => a.writeStage(v.id, focus.key, direction, retry));
   const accept = (content = null) => act("accept", (a) => a.acceptStage(v.id, focus.key, content)).then((r) => r && setEditing(false));
-  const Head = ({ title, children }) => <div className="rh"><h2 className="mr">{title}</h2><div className="acts">{children}</div></div>;
-  const Dirs = ({ label }) => (
-    <Sec icon={RotateCcw} label={<>{label} <span style={{ color: "var(--faint)" }}>(optional)</span></>}>
-      <input className="in mr" value={direction} onChange={(e) => setDirection(e.target.value)} placeholder="e.g. darker, no villain, set in Pune" aria-label="Direction" />
-      <p className="help">A direction is remembered in the Story Bible and still applies to later stages.</p>
-    </Sec>
-  );
 
   let content;
   if (mode === "draft") {
@@ -62,7 +65,7 @@ export default function NextStep() {
               ? <><textarea className="draft edit mr" value={text} onChange={(e) => setText(e.target.value)} aria-label={`Edit the ${focus.title}`} autoFocus /><p className="help">Your version becomes canon exactly as you write it.</p></>
               : <div className={`draft mr${running ? " dim" : ""}`}><Markdown text={focus.content} /></div>}
           </Sec>
-          {!editing && <Dirs label="Direction for a retry" />}
+          {!editing && <Dirs label="Direction for a retry" value={direction} onChange={setDirection} />}
         </div>
         <div className="rfoot"><CheckCircle2 />Saved. Nothing after this stage is written until you answer.</div>
       </>
@@ -74,7 +77,7 @@ export default function NextStep() {
         <div className="rbody">
           {banner}
           <Sec icon={FileText} label="What this stage is"><p className="plain">{STAGE_HELP[focus.key]}</p></Sec>
-          <Dirs label="Direction" />
+          <Dirs label="Direction" value={direction} onChange={setDirection} />
         </div>
         <div className="rfoot"><CheckCircle2 />Nothing is written until you press the button.</div>
       </>
@@ -85,7 +88,7 @@ export default function NextStep() {
         <Head title="Story"><button className="btn k" id="primary-action" disabled={off} onClick={() => act("story", (a) => a.writeStory(v.id))}>{running ? <Spinner /> : null}Write the story</button></Head>
         <div className="rbody">
           {banner}
-          <Sec icon={FileText} label="What happens next"><p className="plain">{STAGE_HELP.story} {LENGTH[v.brief.length]}.</p>
+          <Sec icon={FileText} label="What happens next"><p className="plain">{STAGE_HELP.story} {lengthText(options, v.brief)}.</p>
             <p className="help">When it is written it is checked (length, language, characters, repetition) and validated. A problem is repaired once, with the smallest change.</p></Sec>
         </div>
         <div className="rfoot"><CheckCircle2 />All eight stages are approved.</div>

@@ -5,6 +5,8 @@ export const SP = "/studio";
 export const STAGE_LABELS = ["Concept", "Logline", "Characters", "Conflict", "Ending", "Structure", "Beats", "Outline", "Story", "Screenplay"];
 export const STATE = { your: ["Your turn", "your"], bad: ["Needs attention", "bad"], ok: ["Validated", "ok"], working: ["Working…", "work"] };
 export const LENGTH = { Short: "About 1,000 words", Medium: "About 2,500 words", Long: "About 4,500 words" };
+// What Short / Medium / Long means for the chosen format (the server knows it; LENGTH is only a fallback)
+export const lengthText = (options, brief) => options?.formats?.[brief.content_type]?.lengths?.[brief.length] || LENGTH[brief.length];
 
 export const STAGE_HELP = {
   concept: "About 200 words: the world, the central situation, what makes this take fresh and the emotional core. It states the concrete facts plainly (the city, where everyone lives, the time frame, what happened before), because a vague setting causes contradictions later.",
@@ -53,7 +55,7 @@ export const PROBLEM_TYPES = {
   character_contradiction: "A character contradicts the canon", relationship_contradiction: "A relationship contradicts the canon", ending_contradiction: "The ending differs from the approved ending",
   major_event_contradiction: "An important event contradicts itself", location_contradiction: "A location contradiction", temporal_contradiction: "Things happen out of order",
   missing_causal_event: "An important event has no shown cause", missing_object_origin: "An object is used without being obtained", missing_information_origin: "Information is used without being learned",
-  unauthorized_major_character: "A new major character was added", unauthorized_major_plot_device: "A new major plot device was added", reintroduced_rejected_element: "Something you removed came back", other: "A problem",
+  unauthorized_major_character: "A new major character was added", unauthorized_major_plot_device: "A new major plot device was added", reintroduced_rejected_element: "Something you removed came back", brief_violation: "Something you asked to avoid appears, or the audience rule is broken", other: "A problem",
 };
 
 // what the validator's repair did, in a sentence

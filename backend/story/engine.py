@@ -87,7 +87,9 @@ def generate_stage(pid, stage, direction="", retry=False, progress=lambda m: Non
     retry = bool(retry and st.get("draft"))
     direction = (direction or "").strip()[:1000]
     if direction:                                                   # a direction still applies to the later stages, so it goes in the Bible
-        p, _ = store.mutate(pid, lambda q: q["directions"].append({"stage": stage, "text": direction}))
+        def put(q):                                                 # the latest direction for a stage replaces the earlier one (retries used to pile up)
+            q["directions"] = [d for d in q["directions"] if d.get("stage") != stage] + [{"stage": stage, "text": direction}]
+        p, _ = store.mutate(pid, put)
     if stage == "concept" and not p["notes"]:
         progress("Thinking about the idea…")
         try:

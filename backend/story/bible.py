@@ -2,7 +2,7 @@
 Approved stages are canon. Facts of a stage are REPLACED (not added to) whenever that stage is approved again."""
 import re
 
-from story.options import MAX_FACTS, STAGES
+from story.options import AUDIENCE_RULES, MAX_FACTS, STAGES
 
 HEADER = "# Story Bible\n\n<!-- Approved facts are canon: every later stage, the story and the screenplay must stay consistent with them. -->\n"
 
@@ -22,6 +22,23 @@ def clean_facts(lines):
         if text and text not in facts:
             facts.append(text)
     return facts[:MAX_FACTS]
+
+
+def brief_rules(brief):
+    """The writer's optional brief fields as plain instructions for the model. Empty when they were all left blank."""
+    brief = brief or {}
+    lines = []
+    if brief.get("audience"):
+        lines.append(f"Audience: {brief['audience']}. " + AUDIENCE_RULES.get(brief["audience"], "Match the humor, themes, emotional intensity and language to this audience."))
+    if brief.get("setting"):
+        lines.append(f"Setting: {brief['setting']}. Ground the story in it with real places, everyday detail, the way people speak, food, customs and the period. No generic backdrop and no stereotypes.")
+    if brief.get("preferred_ending"):
+        lines.append(f"Preferred ending: {brief['preferred_ending']}. The Ending stage should follow it unless it contradicts the approved story, and earlier stages should lead toward it.")
+    if brief.get("protagonist_type"):
+        lines.append(f"Protagonist: {brief['protagonist_type']}. The Characters stage should make the protagonist this kind of person.")
+    if brief.get("avoid_themes"):
+        lines.append(f"Avoid: {brief['avoid_themes']}. None of this may appear anywhere, not even as a joke, a background detail or an alternative ending.")
+    return "\n".join(f"- {line}" for line in lines)
 
 
 def render(project):

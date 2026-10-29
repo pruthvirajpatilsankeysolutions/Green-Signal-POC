@@ -66,8 +66,9 @@ def _stage(stage):
 
 @router.get("/options")
 def get_options():
-    return {"content_types": options.CONTENT_TYPES, "genres": options.GENRES, "tones": options.TONES, "languages": options.LANGUAGES,
-            "lengths": options.LENGTHS, "revisions": options.REVISIONS, "stages": [{"key": s, "title": options.STAGE_TITLES[s]} for s in options.STAGES]}
+    return {"content_types": options.OFFERED_FORMATS, "formats": options.format_info(), "genres": options.GENRES, "tones": options.TONES, "languages": options.LANGUAGES,
+            "lengths": options.LENGTHS, "audiences": [{"key": k, "label": l, "hint": h} for k, l, h in options.AUDIENCES],
+            "endings": options.ENDINGS, "revisions": options.REVISIONS, "stages": [{"key": s, "title": options.STAGE_TITLES[s]} for s in options.STAGES]}
 
 
 @router.get("/stories")
@@ -86,6 +87,9 @@ class BriefIn(BaseModel):
     setting: Optional[str] = None
     audience: Optional[str] = None
     brand: Optional[str] = None
+    preferred_ending: Optional[str] = None
+    protagonist_type: Optional[str] = None
+    avoid_themes: Optional[str] = None
     notes: Optional[str] = None
 
 

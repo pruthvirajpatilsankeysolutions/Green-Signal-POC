@@ -23,12 +23,16 @@ export function Pop({ anchor, items, onClose, width = 210, side = "below" }) {
 
 export function Modal({ title, onClose, children, footer, size = "" }) {
   const ref = useRef(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; });
+  // Callers pass a new onClose function on every render. If the effects below depended on it they would run after every keystroke
+  // and the dialog would take the focus back from the text box being typed in (one character per click). So they run once.
   useEffect(() => {
-    const key = (e) => e.key === "Escape" && onClose();
+    const key = (e) => e.key === "Escape" && closeRef.current();
     window.addEventListener("keydown", key);
-    ref.current?.focus();
     return () => window.removeEventListener("keydown", key);
-  }, [onClose]);
+  }, []);
+  useEffect(() => { const el = ref.current; if (el && !el.contains(el.getRootNode().activeElement)) el.focus(); }, []);   // once, on opening; not if a box inside (autoFocus) already has it (getRootNode: the Studio lives in a shadow DOM)
   return (
     <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal ${size}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref}>
@@ -39,6 +43,8 @@ export function Modal({ title, onClose, children, footer, size = "" }) {
     </div>
   );
 }
+
+
 
 export const Spinner = () => <span className="spin" aria-hidden="true" />;
 export const Toast = ({ text }) => <div className={`toast${text ? " show" : ""}`} role="status" aria-live="polite">{text}</div>;

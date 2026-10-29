@@ -140,6 +140,10 @@ h1,h2,h3,h4,h5,p{margin:0}
 .facts li{position:relative;padding-left:16px;font-size:14px;line-height:1.45}
 .facts li::before{content:"";position:absolute;left:3px;top:.6em;width:5px;height:5px;border-radius:50%;background:var(--faint)}
 .dir{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+/* a direction can be a few sentences: the pill grows with its text, wraps inside the card, and shows at most 3 lines (the full text is in the tooltip) */
+.dir .tag{height:auto;min-height:32px;max-width:100%;min-width:0;padding:6px 14px;border-radius:16px;align-items:flex-start;line-height:1.4}
+.dir .tag i{flex:none;margin-top:2px}
+.dir .tag .tx{min-width:0;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
 .more{margin-top:8px;color:var(--muted);font-size:13.5px}
 
 /* right pane */

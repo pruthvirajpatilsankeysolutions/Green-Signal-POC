@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, BookMarked, CheckCircle2, ChevronLeft, Clock, Copy, Download, Feather, FileText, Languages, ListChecks, MoreHorizontal, Pencil, ShieldCheck, Trash2, BookOpen, Clapperboard } from "../icons.jsx";
 import { useStudio } from "../useStudio.jsx";
-import { LENGTH, SP, STATE, rel, stageNote } from "../data.js";
+import { SP, STATE, lengthText, rel, stageNote } from "../data.js";
 import Pipeline from "./Pipeline.jsx";
 import { Pop, Spinner } from "./ui.jsx";
 
@@ -11,7 +11,7 @@ const CHECK_NAMES = { length: "Length", language: "Language", cast: "Characters"
 // The middle: which story, how far along it is, what is approved so far, and what the checks say.
 export default function Overview() {
   const nav = useNavigate();
-  const { story: v, stories, act, busy, saveProject, remove, flash, setNewOpen } = useStudio();
+  const { story: v, stories, act, busy, saveProject, remove, flash, setNewOpen, options } = useStudio();
   const [menu, setMenu] = useState(null);
   const [allFacts, setAllFacts] = useState(false);
   const rootRef = useRef(null);
@@ -47,9 +47,10 @@ export default function Overview() {
   else { nextText = <>Next: write the <b>{focus.title}</b></>; nextLabel = "Continue writing"; nextGo = goRight; }
 
   const metrics = planning
-    ? [[CheckCircle2, `${approved.length} of 8 stages approved`], [BookMarked, `${facts.length} facts in the Story Bible`], [Languages, v.brief.language], [FileText, LENGTH[v.brief.length]], [Clock, `Edited ${rel(v.updated_ts)}`]]
+    ? [[CheckCircle2, `${approved.length} of 8 stages approved`], [BookMarked, `${facts.length} facts in the Story Bible`], [Languages, v.brief.language], [FileText, lengthText(options, v.brief)], [Clock, `Edited ${rel(v.updated_ts)}`]]
     : [[CheckCircle2, "8 of 8 stages approved"], [FileText, `${v.words.toLocaleString()} words`], [Languages, v.brief.language], [Clock, `Edited ${rel(v.updated_ts)}`]];
-  const tags = [v.brief.content_type, ...(v.brief.genres || []), ...(v.brief.tones || [])];
+  const short = (t) => (t.length > 40 ? `${t.slice(0, 39)}…` : t);
+  const tags = [v.brief.content_type, ...(v.brief.genres || []), ...(v.brief.tones || []), v.brief.audience, v.brief.setting && short(v.brief.setting)].filter(Boolean);
   const shown = allFacts ? facts : facts.slice(0, 4);
   const factsBad = approved.find((s) => s.facts_error);
 
@@ -99,7 +100,7 @@ export default function Overview() {
               {factsBad && <div className="note">{factsBad.facts_error} <button className="lk" style={{ border: 0, background: "none", font: "inherit", fontWeight: 600, textDecoration: "underline", cursor: "pointer" }} onClick={() => act("facts", (a) => a.refreshFacts(v.id, factsBad.key))}>Write the facts again</button></div>}
               {facts.length ? <ul className="facts">{shown.map((f, i) => <li key={i} className="mr">{f}</li>)}</ul> : <p className="help" style={{ marginTop: 14 }}>Facts appear here when you approve a stage. Later stages must not contradict them.</p>}
               {facts.length > 4 && <p className="more"><button onClick={() => setAllFacts(!allFacts)} style={{ border: 0, background: "none", font: "inherit", color: "inherit", cursor: "pointer", padding: 0 }}>{allFacts ? "Show fewer" : `+ ${facts.length - 4} more facts`}</button></p>}
-              {v.directions.length > 0 && <div className="dir">{v.directions.map((d, i) => <span className="tag" key={i}><i><Pencil size={14} /></i>{d.text}</span>)}</div>}
+              {v.directions.length > 0 && <div className="dir">{v.directions.map((d, i) => <span className="tag" key={i} title={d.text}><i><Pencil size={14} /></i><span className="tx">{d.text}</span></span>)}</div>}
             </section>
           ) : (
             <section className="card">

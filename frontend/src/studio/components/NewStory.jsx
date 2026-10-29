@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check } from "../icons.jsx";
 import { useStudio } from "../useStudio.jsx";
-import { LENGTH } from "../data.js";
+import { lengthText } from "../data.js";
 import { Modal } from "./ui.jsx";
 
 const MAX_PICK = 3;
@@ -16,15 +16,17 @@ function Chips({ label, items, value, onChange }) {
   );
 }
 
-// The brief: what the writer wants. Everything Story Studio needs to start, and nothing more.
+// The brief: what the writer wants. Idea, format, language, genre, tone and length are needed; everything else is optional guidance.
 export default function NewStory() {
   const { options, create, setNewOpen } = useStudio();
-  const [f, setF] = useState({ content_type: "Short Story", idea: "", genres: [], tones: [], language: localStorage.getItem("studio-language") || "English", length: "Medium", characters: "", setting: "", audience: "", brand: "", notes: "" });
+  const [f, setF] = useState({ content_type: "Short Story", idea: "", genres: [], tones: [], language: localStorage.getItem("studio-language") || "English", length: "Medium", audience: "", setting: "", preferred_ending: "", protagonist_type: "", avoid_themes: "", characters: "", brand: "", notes: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
   if (!options) return null;
   const missing = f.idea.trim().length < 10 ? "Describe the idea in a sentence or two." : !f.genres.length ? "Choose at least one genre." : !f.tones.length ? "Choose at least one tone." : "";
+  const format = options.formats?.[f.content_type];
+  const audience = (options.audiences || []).find((a) => a.key === f.audience);
   const submit = async () => {
     setBusy(true); setError("");
     try {
@@ -37,19 +39,34 @@ export default function NewStory() {
     <Modal title="New story" onClose={() => setNewOpen(false)}
            footer={<>{missing && <span className="help" style={{ margin: "0 auto 0 0" }}>{missing}</span>}<button className="btn" onClick={() => setNewOpen(false)} disabled={busy}>Cancel</button><button className="btn k" onClick={submit} disabled={busy || !!missing}>{busy ? "Starting…" : "Start the story"}</button></>}>
       <p className="help" style={{ margin: 0 }}>Tell Story Studio the basics. It writes one stage at a time and you approve each one before the next is written.</p>
-      <div className="two2">
-        <div className="fld"><label htmlFor="ct">What are you making?</label><select id="ct" className="in" value={f.content_type} onChange={(e) => set("content_type")(e.target.value)}>{options.content_types.map((x) => <option key={x}>{x}</option>)}</select></div>
+      <div className="two2" style={{ alignItems: "start" }}>
+        <div className="fld"><label htmlFor="ct">What are you making?</label><select id="ct" className="in" value={f.content_type} onChange={(e) => set("content_type")(e.target.value)}>{options.content_types.map((x) => <option key={x}>{x}</option>)}</select>
+          {format?.summary && <p className="help" style={{ margin: 0 }}>{format.summary}</p>}</div>
         <div className="fld"><label htmlFor="lg">Language</label><select id="lg" className="in" value={f.language} onChange={(e) => set("language")(e.target.value)}>{options.languages.map((x) => <option key={x}>{x}</option>)}</select></div>
       </div>
       <div className="fld"><label htmlFor="idea">The idea <span className="hint">{f.idea.trim().length}/4000</span></label>
         <textarea id="idea" className="in area mr" rows={4} maxLength={4000} value={f.idea} onChange={(e) => set("idea")(e.target.value)} placeholder="e.g. A fisherman finds an old radio that plays tomorrow's news, and has to decide whether to warn the village." autoFocus /></div>
       <Chips label="Genre" items={options.genres} value={f.genres} onChange={set("genres")} />
       <Chips label="Tone" items={options.tones} value={f.tones} onChange={set("tones")} />
-      <div className="fld"><span className="fl">Length <span className="hint">{LENGTH[f.length].toLowerCase()}</span></span>
+      <div className="fld"><span className="fl">Length <span className="hint">{lengthText(options, f).toLowerCase()}</span></span>
         <div className="seg2" role="radiogroup" aria-label="Length">{options.lengths.map((x) => <button type="button" key={x} role="radio" aria-checked={f.length === x} className={f.length === x ? "on" : ""} onClick={() => set("length")(x)}>{x}</button>)}</div></div>
+      <div className="fld"><span className="fl">Audience <span className="hint">optional · shapes humor, themes, intensity and language</span></span>
+        <div className="chips" role="group" aria-label="Audience">
+          {(options.audiences || []).map((a) => { const on = f.audience === a.key; return <button type="button" key={a.key} className={`chipb${on ? " on" : ""}`} aria-pressed={on} onClick={() => set("audience")(on ? "" : a.key)}>{on && <Check size={13} />}{a.label}</button>; })}
+        </div>
+        {audience && <p className="help" style={{ margin: 0 }}>{audience.hint}</p>}</div>
+      <div className="fld"><label htmlFor="f-setting">Setting <span className="hint">optional · a place, time period or culture</span></label>
+        <input id="f-setting" className="in mr" maxLength={300} value={f.setting} onChange={(e) => set("setting")(e.target.value)} placeholder="e.g. Mumbai chawls, 2010" /></div>
+      <details className="more2"><summary>Creative preferences (optional)</summary>
+        <div className="two2" style={{ marginTop: 12 }}>
+          <div className="fld"><label htmlFor="f-ending">Preferred ending</label><select id="f-ending" className="in" value={f.preferred_ending} onChange={(e) => set("preferred_ending")(e.target.value)}><option value="">No preference</option>{(options.endings || []).map((x) => <option key={x}>{x}</option>)}</select></div>
+          <div className="fld"><label htmlFor="f-protagonist">Protagonist type</label><input id="f-protagonist" className="in mr" maxLength={300} value={f.protagonist_type} onChange={(e) => set("protagonist_type")(e.target.value)} placeholder="e.g. a retired schoolteacher" /></div>
+        </div>
+        <div className="fld" style={{ marginTop: 12 }}><label htmlFor="f-avoid">Themes to avoid</label><input id="f-avoid" className="in mr" maxLength={600} value={f.avoid_themes} onChange={(e) => set("avoid_themes")(e.target.value)} placeholder="e.g. no violence against women, no political jokes" /></div>
+      </details>
       <details className="more2"><summary>More details (optional)</summary>
         <div className="two2" style={{ marginTop: 12 }}>
-          {[["characters", "Characters you already have in mind"], ["setting", "Setting"], ["audience", "Audience"], ["brand", "Brand (for an advertisement)"]].map(([k, l]) => <div className="fld" key={k}><label htmlFor={`f-${k}`}>{l}</label><input id={`f-${k}`} className="in mr" value={f[k]} onChange={(e) => set(k)(e.target.value)} /></div>)}
+          {[["characters", "Characters you already have in mind"], ["brand", "Brand (for an advertisement)"]].map(([k, l]) => <div className="fld" key={k}><label htmlFor={`f-${k}`}>{l}</label><input id={`f-${k}`} className="in mr" value={f[k]} onChange={(e) => set(k)(e.target.value)} /></div>)}
         </div>
         <div className="fld" style={{ marginTop: 12 }}><label htmlFor="f-notes">Anything else Story Studio should know</label><textarea id="f-notes" className="in area mr" rows={2} value={f.notes} onChange={(e) => set("notes")(e.target.value)} /></div>
       </details>

@@ -7,7 +7,7 @@ from story.options import PASS_SCORE
 
 HARD_TYPES = {"character_contradiction", "relationship_contradiction", "ending_contradiction", "major_event_contradiction",
               "location_contradiction", "temporal_contradiction", "missing_causal_event", "missing_object_origin",
-              "missing_information_origin", "unauthorized_major_character", "unauthorized_major_plot_device", "reintroduced_rejected_element"}
+              "missing_information_origin", "unauthorized_major_character", "unauthorized_major_plot_device", "reintroduced_rejected_element", "brief_violation"}
 
 
 def _items(value, default):
