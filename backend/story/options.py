@@ -32,6 +32,10 @@ SIZES = {
     "Medium": {"words": 2500, "scenes": (15, 20), "beats": 15, "pages": 30},
     "Long": {"words": 4500, "scenes": (25, 35), "beats": 15, "pages": 90},
 }
+# Story-like formats get about 250-375 words per outline scene (the old budget gave 80-180, which reads as the outline retold).
+# Advertisements and social scripts keep the sizes above. Tune LONGFORM_WORDS after reading a few real stories.
+LONGFORM = {"Film Story", "Short Story", "Web Series Pilot", "Novel Chapter", "Documentary"}
+LONGFORM_WORDS = {"Short": 3000, "Medium": 5500, "Long": 9000}
 MAX_FACTS = 15
 MAX_SCENES = 40
 WORDS_PER_PAGE = 180
@@ -50,7 +54,11 @@ FORMAT_NOTES = {
 
 
 def sizes(brief):
-    return SIZES.get((brief or {}).get("length"), SIZES["Medium"])
+    brief = brief or {}
+    base = SIZES.get(brief.get("length"), SIZES["Medium"])
+    if brief.get("content_type") in LONGFORM:
+        return {**base, "words": LONGFORM_WORDS.get(brief.get("length"), LONGFORM_WORDS["Medium"])}
+    return base
 
 
 def clean_brief(raw):

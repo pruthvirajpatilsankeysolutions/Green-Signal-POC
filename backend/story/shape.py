@@ -28,11 +28,12 @@ def check(stage, text, brief):
             w.append("There is no 'Why it works:' line.")
     elif stage == "characters":
         names = cast_names(text)
-        if not 4 <= len(names) <= 7:
-            w.append(f"{len(names)} characters found (a protagonist, an antagonist and 2 to 4 supporting characters).")
-        for label in ("want", "need", "fear", "flaw", "arc"):
-            if len(re.findall(rf"\b{label}\b", text, re.I)) < max(1, len(names)):
-                w.append(f"Not every character has a {label.title()} line.")
+        if not 6 <= len(names) <= 9:
+            w.append(f"{len(names)} characters found (aim for 7 to 8: a protagonist, an opposing force and 5 to 6 supporting characters).")
+        # Only the protagonist and the opposing force get the full lines; supporting characters get Want, Flaw and Contradiction.
+        for label in ("want", "need", "flaw", "arc"):
+            if len(re.findall(rf"\b{label}\b", text, re.I)) < min(2, max(1, len(names))):
+                w.append(f"The protagonist and the opposing force each need a {label.title()} line.")
                 break
     elif stage == "conflict":
         missing = [x for x in ("External", "Internal", "Relationship", "Stakes", "Ticking clock") if x.lower() not in text.lower()]

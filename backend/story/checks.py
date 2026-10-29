@@ -3,14 +3,21 @@ used alongside the validator (which judges continuity)."""
 import re
 from collections import Counter
 
-from story.options import SIZES
+from story.options import sizes
 
 SCRIPTS = {"Hindi": (0x0900, 0x097F), "Marathi": (0x0900, 0x097F), "Tamil": (0x0B80, 0x0BFF), "Telugu": (0x0C00, 0x0C7F),
            "Kannada": (0x0C80, 0x0CFF), "Malayalam": (0x0D00, 0x0D7F), "Bengali": (0x0980, 0x09FF)}
 
 
 def word_count(text):
-    return len(re.findall(r"\w+", text))
+    """Words as a reader counts them: whitespace-separated tokens that contain a letter or digit.
+    (A \\w+ regex splits Hindi, Marathi, Tamil... words at their vowel signs and counts "don't" as two.)"""
+    return sum(1 for w in text.split() if any(c.isalnum() for c in w))
+
+
+def _tokens(text):
+    strip = ".,;:!?\"'\u201c\u201d\u2018\u2019()[]{}\u2014\u2013-*_#`\u0964\u0965"
+    return [t for t in (w.strip(strip) for w in text.split()) if t]
 
 
 def language_ratio(text, language):
@@ -23,21 +30,30 @@ def language_ratio(text, language):
     return sum(c.isascii() for c in letters) / len(letters)
 
 
+LABELS = {"want", "why", "need", "fear", "flaw", "past", "contradiction", "habit", "voice", "never", "relationship", "relationships", "pressure", "arc"}
+
+
 def cast_names(characters_md):
-    """The bold names in the approved Characters stage."""
-    names = {re.split(r"[—\-–(,:]", n)[0].strip() for n in re.findall(r"\*\*([^*]+)\*\*", characters_md or "")}
-    skip = {"want", "need", "fear", "flaw", "arc"}
-    return sorted(n for n in names if n and n.lower() not in skip)
+    """The bold names in the approved Characters stage. Bold field labels ("**Want:**", "**Past**:") are not names."""
+    names = set()
+    for m in re.finditer(r"\*\*([^*\n]+)\*\*(\s*:)?", characters_md or ""):
+        span, colon = m.group(1).strip(), m.group(2)
+        if colon or span.endswith(":"):
+            continue
+        name = re.split(r"[—\-–(,:]", span)[0].strip()
+        if name and name.lower() not in LABELS:
+            names.add(name)
+    return sorted(names)
 
 
 def repetition(text, n=4):
-    words = re.findall(r"\w+", text.lower())
+    words = [t.lower() for t in _tokens(text)]
     grams = [tuple(words[i:i + n]) for i in range(len(words) - n + 1)]
     return sum(c - 1 for c in Counter(grams).values() if c > 1) / len(grams) if grams else 0.0
 
 
 def run(brief, story, characters_md=""):
-    target = SIZES.get(brief.get("length"), SIZES["Medium"])["words"]
+    target = sizes(brief)["words"]
     wc = word_count(story)
     lang = brief.get("language", "English")
     ratio = language_ratio(story, lang)

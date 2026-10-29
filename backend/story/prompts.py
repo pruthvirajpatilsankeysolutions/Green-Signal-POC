@@ -19,6 +19,20 @@ WRITER = ("You are the writer in Story Studio, a tool where a writer develops a 
 EDITOR = ("You are a strict continuity editor. You did not write this text. Judge it only against the approved canon and against itself. "
           "Be precise, quote evidence, never invent problems, and do not flag anything the story or the canon actually establishes.")
 
+FREE_TO_INVENT = """FREE TO INVENT (encouraged, and it is how the story comes alive)
+- The exact words of every dialogue line, gestures, small incidents, minor background characters with no plot role, sensory texture,
+  and HOW each approved event is dramatized on the page. The canon fixes WHAT happens and to WHOM, not how it looks and sounds."""
+
+CRAFT_RULES = """CRAFT (what makes the story good, not only consistent)
+- Dramatize, do not summarize. Play each outline scene as a scene of about {per_scene} words: action, dialogue, physical detail.
+- Every scene has a character who wants something concrete, an obstacle, and a turn at the end (a decision, reveal, reversal or cost). Enter late, leave early.
+- Play the key moment of each scene in action and dialogue; use summary only to bridge time.
+- Give each character their own voice (see their Voice line). People do not say exactly what they mean, and nobody explains the plot in speeches.
+- Show feeling through behaviour and objects, not by naming the emotion.
+- One specific, unexpected sensory detail per scene. No cliches, no stock phrases.
+- Let the genres and tones shape word choice, rhythm and imagery.
+- Write natural, idiomatic {language}, as native speakers talk and write, not a translation from English."""
+
 STAGE_GUIDE = {
     "concept": "150-220 words of prose: the world, the central situation, what makes this take fresh, and the emotional core. No headings. "
                "State the concrete facts plainly: the city or town where the story happens, where each main character lives now, the time frame, "
@@ -43,8 +57,9 @@ STAGE_GUIDE = {
              "Include a beat that pays off every character arc in the Story Bible, and include the approved ending's key actions exactly as approved.",
     "outline": "A scene-by-scene outline ({scenes_lo}-{scenes_hi} scenes), grouped under act headings. Each scene: a short bold title, the location, and 1-2 sentences. "
                "Every approved beat appears in at least one scene, and every important event has its cause shown in an earlier scene.",
-    "story": "The complete story at about {words} words, following the approved outline scene by scene. Start with the title as a level-1 heading (`# Title`). "
-             "Use dialogue, sensory detail and a strong final image. Format: {format_note}.",
+    "story": "The complete story at about {words} words, following the approved outline scene by scene, with every outline scene played out as a scene. "
+             "Start with the title as a level-1 heading (`# Title`). End on a strong final image. Format: {format_note}. "
+             "If the format note asks for something other than scene-driven prose (for example narration in a documentary), follow the format note.",
 }
 
 
@@ -131,9 +146,18 @@ def facts_prompt(project, stage, text):
 
 
 # ---------------------------------------------------------------- the story, validation, repair, revision
+def _per_scene(project):
+    s = sizes(project.get("brief"))
+    lo, hi = s["scenes"]
+    return max(100, int(round(s["words"] / ((lo + hi) / 2), -1)))
+
+
 def story_prompt(project):
+    brief = project["brief"]
+    craft = CRAFT_RULES.format(per_scene=_per_scene(project), language=_lang(project))
     parts = ["TASK: story", f"Write the complete STORY. Write it in {_lang(project)}.", _bible_block(project), _reads_block(project, "story"),
-             f"INSTRUCTIONS\n{_guide(project, 'story')}", CANON_RULES]
+             CANON_RULES, FREE_TO_INVENT, f"INSTRUCTIONS\n{_guide(project, 'story')}", craft,
+             f"Content type: {brief['content_type']}. Genres: {', '.join(brief['genres'])}. Tones: {', '.join(brief['tones'])}."]
     return WRITER, "\n\n".join(parts)
 
 

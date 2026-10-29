@@ -23,7 +23,9 @@ def speakers(text):
     found = []
     for i, line in enumerate(lines[:-1]):
         cue = line.strip()
-        if (cue and cue == cue.upper() and any(c.isalpha() for c in cue) and len(cue) < 40
+        # Cues are English capitals. Scripts without letter case (Devanagari, Tamil...) always equal their own upper() form,
+        # so they must be excluded explicitly, and a sentence ending in a full stop is action, not a name.
+        if (cue and cue.isascii() and cue == cue.upper() and any(c.isalpha() for c in cue) and len(cue) < 40 and not cue.endswith((".", "!", "?"))
                 and not HEADING.match(cue + " ") and not cue.endswith("TO:") and not cue.startswith(("(", "FADE")) and lines[i + 1].strip()):
             found.append(EXT.sub("", cue).strip())
     return list(dict.fromkeys(found))
@@ -41,7 +43,7 @@ def check_scene(text, characters_md="", heading=""):
             issues.append("The scene heading was missing and was added.")
         else:
             issues.append("The scene heading is missing.")
-    names = cast_upper(characters_md)
+    names = {n for n in cast_upper(characters_md) if n.isascii()}   # cues are English; a cast written in another script cannot be compared
     spoken = speakers(text)
     if names:
         for s in spoken:

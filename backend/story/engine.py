@@ -164,6 +164,10 @@ def _judge(p, story):
     raise ModelError(f"The validator's report could not be read ({last}). Run the validation again.")
 
 
+def _wants_shorter(instruction):
+    return bool(re.search(r"\b(shorter|shorten|cut|trim|condense|tighten)\b", instruction or "", re.I))
+
+
 def _title_of(story):
     m = re.match(r"\s*#\s+(.+)", story)
     return m.group(1).strip() if m else ""
@@ -194,6 +198,8 @@ def _validate_and_repair(pid, progress):
     def save(q):
         if story != q["story"]:
             q["story_prev"] = q["story"]
+            if q["screenplay"]:
+                q["screenplay"]["stale"] = True                     # the screenplay was written from the older story
         q["story"] = story
         q["title"] = _title_of(story) or q["title"]
         q["validation"] = {**report, "repair": repair, "at": time.time()}
@@ -231,7 +237,7 @@ def revise_story(pid, instruction, progress=lambda m: None):
     progress("Revising the story…")
     new = llm.clean_text(llm.complete(*prompts.revise_prompt(p, p["story"], instruction), temperature=0.7))
     old_w, new_w = checks.word_count(p["story"]), checks.word_count(new)
-    shorter = "shorter" in instruction.lower() or "cut" in instruction.lower()
+    shorter = _wants_shorter(instruction)
     if new_w < 50 or (not shorter and new_w < 0.5 * old_w):
         raise StoryError("The revised story came back far too short, so it was not used. Try again.")
 
@@ -254,6 +260,8 @@ def undo_story(pid):
         q["story"], q["story_prev"], q["validation"] = q["story_prev"], q["story"], {}
         q["title"] = _title_of(q["story"]) or q["title"]
         q["checks"] = _run_checks(q)
+        if q["screenplay"]:
+            q["screenplay"]["stale"] = True                         # the screenplay no longer matches the story
     store.mutate(pid, save)
 
 
