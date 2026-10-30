@@ -28,7 +28,7 @@ STUDIO_ACCESS_KEY = os.getenv("STUDIO_ACCESS_KEY", "")      # protects Story Stu
 
 # ---------- poster sizes (width, height) ----------
 SIZES = {
-    "feed": (1080, 1080),  # square post, same as the client's Instagram posters
+    "feed": (1080, 1350),  # Instagram portrait post (4:5), same as Canva's "Instagram Post"
     "story": (1080, 1920),  # Instagram / WhatsApp story (9:16)
 }
 

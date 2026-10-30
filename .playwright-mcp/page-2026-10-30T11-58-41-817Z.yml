@@ -1,0 +1,30 @@
+- generic [ref=f2e1]:
+  - banner [ref=f2e2]:
+    - button "Back" [ref=f2e3] [cursor=pointer]
+    - generic [ref=f2e6]:
+      - button "Undo (Ctrl+Z)" [disabled] [ref=f2e7]
+      - button "Redo (Ctrl+Y)" [disabled] [ref=f2e11]
+    - generic [ref=f2e15]: Loading…
+    - generic [ref=f2e16]:
+      - button "Download" [disabled] [ref=f2e18]
+      - button "Save design" [disabled] [ref=f2e22]
+  - generic [ref=f2e27]:
+    - navigation "Editor tools" [ref=f2e28]:
+      - button "Text" [ref=f2e29] [cursor=pointer]
+      - button "Elements" [ref=f2e33] [cursor=pointer]
+      - button "Uploads" [ref=f2e39] [cursor=pointer]
+      - button "Brand" [ref=f2e44] [cursor=pointer]
+      - button "Background" [ref=f2e52] [cursor=pointer]
+      - button "Layers" [ref=f2e58] [cursor=pointer]
+    - complementary [ref=f2e64]:
+      - paragraph [ref=f2e66]: Loading…
+      - button "Hide panel" [ref=f2e67] [cursor=pointer]
+    - main [ref=f2e70]:
+      - generic [ref=f2e76]:
+        - button "Zoom out" [ref=f2e77] [cursor=pointer]
+        - slider "Zoom" [ref=f2e79]: "50"
+        - button "Zoom in" [ref=f2e80] [cursor=pointer]
+        - generic [ref=f2e82]: 50%
+        - button "Fit to screen" [ref=f2e83] [cursor=pointer]
+        - button "Full screen" [ref=f2e89] [cursor=pointer]
+        - button "Shortcuts" [ref=f2e100] [cursor=pointer]

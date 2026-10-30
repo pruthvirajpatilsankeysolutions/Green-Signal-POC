@@ -1,0 +1,33 @@
+- generic [ref=f4e1]:
+  - banner [ref=f4e2]:
+    - button "Back" [ref=f4e3] [cursor=pointer]
+    - generic [ref=f4e6]:
+      - button "Undo (Ctrl+Z)" [disabled] [ref=f4e7]
+      - button "Redo (Ctrl+Y)" [disabled] [ref=f4e11]
+    - generic [ref=f4e15]: Loading…
+    - generic [ref=f4e16]:
+      - button "Download" [disabled] [ref=f4e18]
+      - button "Save design" [disabled] [ref=f4e22]
+  - generic [ref=f4e27]:
+    - navigation "Editor tools" [ref=f4e28]:
+      - button "Text" [ref=f4e29] [cursor=pointer]
+      - button "Elements" [ref=f4e33] [cursor=pointer]
+      - button "Uploads" [ref=f4e39] [cursor=pointer]
+      - button "Brand" [ref=f4e44] [cursor=pointer]
+      - button "Background" [ref=f4e52] [cursor=pointer]
+      - button "Layers" [ref=f4e58] [cursor=pointer]
+    - complementary [ref=f4e64]:
+      - paragraph [ref=f4e66]: Loading…
+      - button "Hide panel" [ref=f4e67] [cursor=pointer]
+    - main [ref=f4e70]:
+      - generic [ref=f4e71]: Select an item to edit it, or add something from the left.
+      - generic [ref=f4e76]:
+        - button "Guides on" [pressed] [ref=f4e78] [cursor=pointer]
+        - generic [ref=f4e83]:
+          - button "Zoom out" [ref=f4e84] [cursor=pointer]
+          - slider "Zoom" [ref=f4e86]: "50"
+          - button "Zoom in" [ref=f4e87] [cursor=pointer]
+          - generic [ref=f4e89]: 50%
+          - button "Fit to screen" [ref=f4e90] [cursor=pointer]
+          - button "Full screen" [ref=f4e96] [cursor=pointer]
+          - button "Shortcuts" [ref=f4e107] [cursor=pointer]

@@ -174,10 +174,13 @@ def get_design(draft_id: str):
     brand = [{"name": a["kind"].title(), "url": to_url(a["path"])} for a in client["assets"]]
     fonts = [{**f, "url": f"/files/assets/fonts/{f['file']}"} for f in all_fonts()
              if (ASSETS_DIR / "fonts" / f["file"]).exists()]          # skip fonts not downloaded yet
+    starter = None if saved.get("feed") else (measured_layout(draft) or starter_layout(draft))
+    # a poster made before a size change keeps its own size: the canvas must match its picture
+    starter_size = {"width": starter["width"], "height": starter["height"]} if starter and starter.get("measured") else None
     return {"draft": draft_out(draft), "saved": saved.get("feed"),
-            "starter": None if saved.get("feed") else (measured_layout(draft) or starter_layout(draft)),
+            "starter": starter,
             "brand_assets": brand, "fonts": fonts,
-            "size": (saved.get("feed") or {}).get("size") or {"width": SIZES["feed"][0], "height": SIZES["feed"][1]}}
+            "size": (saved.get("feed") or {}).get("size") or starter_size or {"width": SIZES["feed"][0], "height": SIZES["feed"][1]}}
 
 
 class DesignIn(BaseModel):

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Canvas, FabricImage, FabricObject, Gradient, Rect, Shadow, Textbox, config as fabricConfig, filters, loadSVGFromString, util } from "fabric";
 import {
-  AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, Bold, ChevronLeft, Copy, Download, Image as ImageIcon,
-  FlipHorizontal2, FlipVertical2, Layers, Lock, Magnet, Maximize, Minus, Palette, Plus, Redo2, Save, Shapes, Trash2, Type, Undo2, Unlock, Upload, Wallpaper,
+  ALargeSmall, Grid3x3, MoveLeft, MoveRight, Rows3, Table2, UnfoldVertical, ChevronsUpDown, AlignCenter, AlignLeft, TextAlignJustify as AlignJustify, AlignRight, ArrowDown, ArrowDownToLine, ArrowUpToLine, Blend, FoldVertical, Italic, List, Sparkles, Underline, ArrowLeft, ArrowUp, Bold, ChevronLeft, ChevronRight, CircleHelp, ClipboardPaste, Copy, CopyPlus, Download, Expand, Image as ImageIcon,
+  FlipHorizontal2, FlipVertical2, GripVertical, Layers, Lock, Maximize, Minimize, Minus, Palette, Plus, Redo2, Save, Shapes, Trash2, Type, Undo2, Unlock, Upload, Wallpaper,
 } from "lucide-react";
 import { api } from "../api.js";
 import { useStatus } from "../App.jsx";
@@ -11,11 +11,20 @@ import Notice from "../components/Notice.jsx";
 import SaveTemplateDialog from "../components/SaveTemplateDialog.jsx";
 import ColorPanel, { DIRECTIONS, normHex } from "../components/ColorPanel.jsx";
 import { BADGES, GRAPHICS } from "../editor/graphics.js";
-import { LINES, OVERLAYS, SHAPES, makeBadge } from "../editor/shapes.js";
+import IconBrowser from "../editor/IconBrowser.jsx";
+import { makeShapePath } from "../editor/shapeLibrary.js";
+import { BORDER_MODES, TABLE_OPS, bakeScale, buildTable, cellAt, cellCorners, localPoint, newTable, rebuild, showH, showV } from "../editor/table.js";
+import { LINES, OVERLAYS, makeBadge } from "../editor/shapes.js";
 
 // Fabric.js 7 measures positions from an object's centre by default; this app uses the top-left corner.
 FabricObject.ownDefaults.originX = "left";
 FabricObject.ownDefaults.originY = "top";
+// Selection box: a clear purple outline with round white handles (easy to see and grab at any zoom)
+Object.assign(FabricObject.ownDefaults, {
+  borderColor: "#8B3DFF", borderScaleFactor: 2.5, borderOpacityWhenMoving: 1,
+  cornerStyle: "circle", cornerColor: "#FFFFFF", cornerStrokeColor: "#8B3DFF", transparentCorners: false,
+  cornerSize: 14, touchCornerSize: 28,
+});
 // Pictures draw straight onto the page (no low-quality cached copy), so the high-quality
 // smoothing below applies to them when they are shown smaller than their real size.
 FabricImage.ownDefaults.objectCaching = false;
@@ -57,6 +66,15 @@ const pinBackground = (c) => {
   c.sendObjectToBack(bg);
 };
 
+// a small picture of one layer for the Layers panel ("" if it can't be drawn: the name is shown instead)
+const layerThumb = (o) => {
+  try {
+    const { width, height } = o.getBoundingRect();
+    if (!width || !height) return "";
+    return o.toDataURL({ format: "png", enableRetinaScaling: false, multiplier: Math.min(1, 260 / width, 90 / height) });
+  } catch { return ""; }
+};
+
 // Is the board light or dark where a new text will go? Picks dark text on light areas and
 // white text with a shadow on dark areas (like Canva). Falls back to dark text if unsure.
 const isLightArea = (c, left, top, width, height) => {
@@ -89,7 +107,23 @@ const portableSources = (json) => {
 
 // saved with every design; "slot" (and its fitting rules) marks what the app fills in a template
 const EXTRA = ["name", "isBackground", "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls",
-  "slot", "minSize", "maxLines", "sourceFont", "sourceFamily", "vAlign", "boxTop", "boxHeight", "textTransform", "flowAfter"];
+  "slot", "minSize", "maxLines", "sourceFont", "sourceFamily", "vAlign", "boxTop", "boxHeight", "textTransform", "flowAfter", "anchor", "table"];
+
+// Anchor text box: when the text grows or shrinks, the box keeps its top, middle or bottom edge in place
+const anchorFix = (o) => {
+  const h = o.getScaledHeight();
+  if (o._anchorH != null && o.anchor && o.anchor !== "top") o.set({ top: o.top + (o._anchorH - h) * (o.anchor === "bottom" ? 1 : 0.5) });
+  o._anchorH = h; o.setCoords();
+};
+const isLightColor = (hex) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) > 150;
+};
+const BULLET = "• ";
+const isListed = (o) => o?.type === "textbox" && (o.text || "").split("\n").every((l) => !l.trim() || l.startsWith(BULLET));
+const effectOf = (o) => (o?.strokeWidth > 0 ? "outline" : o?.shadow ? (o.shadow.offsetY === 0 && o.shadow.offsetX === 0 ? "glow" : "shadow") : "none");
 const EMOJIS = ["🪔", "🎉", "🎊", "✨", "🌸", "🌼", "🌺", "🏵️", "🌻", "🌷", "💐", "🌹", "🙏", "👏", "🤝", "💪",
   "❤️", "🧡", "💛", "💚", "💙", "💜", "⭐", "🌟", "🔥", "🎁", "🍬", "🍭", "🍰", "🎂", "🧁", "🍫",
   "🥳", "🎈", "🎀", "🪷", "🕉️", "🚩", "🇮🇳", "🏏", "🏆", "🥇", "📢", "📍", "📞", "✅", "☀️", "🌙"];
@@ -108,11 +142,6 @@ const presetsFor = (s) => [
   { label: "Add a heading", text: s.heading, font: "Baloo 2", weight: "800", size: 110, cls: "p-heading" },
   { label: "Add a subheading", text: s.sub, font: "Mukta", weight: "800", size: 64, cls: "p-sub" },
   { label: "Add a little body text", text: s.body, font: "Mukta", weight: "400", size: 40, cls: "p-body" },
-];
-const combosFor = (s) => [
-  { label: s.combos[0], font: "Kalam", weight: "700", size: 72, fill: "#FFFFFF" },
-  { label: s.combos[1], font: "Rozha One", weight: "400", size: 80, fill: "#7A1F12" },
-  { label: s.combos[2], font: "Baloo 2", weight: "800", size: 90, fill: "#F26B0F" },
 ];
 const TABS = [
   { id: "text", label: "Text", icon: Type },
@@ -204,10 +233,19 @@ function addAlignmentGuides(c, size, enabled) {
     const ctx = c.contextTop;
     if (!ctx) return;
     c.clearContext(ctx);
-    if (!lines.length) return;
+    const sel = c._tableSel;                           // the clicked cell of the selected table
+    const cell = sel && c.getActiveObject() === sel.group && c.getObjects().includes(sel.group) ? cellCorners(sel.group, sel.r, sel.c) : null;
+    if (!lines.length && !cell) return;
     const v = c.viewportTransform, r = c.getRetinaScaling(), z = c.getZoom();
     ctx.save();
     ctx.setTransform(v[0] * r, 0, 0, v[3] * r, v[4] * r, v[5] * r);
+    if (cell) {
+      ctx.beginPath();
+      cell.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+      ctx.fillStyle = "rgba(124, 58, 237, .12)"; ctx.fill();
+      ctx.strokeStyle = "#7C3AED"; ctx.lineWidth = 3 / z; ctx.setLineDash([]); ctx.stroke();
+    }
     ctx.strokeStyle = "#FF2D95";
     ctx.lineWidth = 1 / z;
     ctx.setLineDash([5 / z, 4 / z]);
@@ -248,8 +286,9 @@ export default function Editor() {
   const [unavailableFonts, setUnavailableFonts] = useState([]); // checked: not on Google Fonts (Canva / commercial)
   const [saveDialog, setSaveDialog] = useState(false);     // template mode: Save opens the options dialog
   const [colorTarget, setColorTarget] = useState(null);    // "fill" | "stroke" | "background": the open colour panel
-  const guidesOn = useRef(true);                           // alignment guides (bottom bar toggle)
-  const [guides, setGuides] = useState(true);
+  const guidesOn = useRef(true);                           // alignment guides while dragging, always on
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const navigate = useNavigate();
   const { status } = useStatus();
   const sample = SAMPLES[status?.client?.language] || SAMPLES.mr;
@@ -328,10 +367,18 @@ export default function Editor() {
     applyZoom(fit);
   }, [applyZoom, info]);
 
+  useEffect(() => {
+    const onChange = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+  const toggleFullscreen = () => { (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => null); };
+
   // ---------------------------------------------------------------- load
   useEffect(() => {
     let disposed = false;
     const el = document.createElement("canvas");
+    holder.current.innerHTML = "";       // a canvas left behind by the previous editor's dispose would add a blank 150px strip above the page
     holder.current.appendChild(el);
     (async () => {
       try {
@@ -359,7 +406,7 @@ export default function Editor() {
         if (disposed) return;
         const { width, height } = data.size;
         fabricConfig.devicePixelRatio = window.devicePixelRatio;     // the screen's density right now
-        const c = new Canvas(el, { preserveObjectStacking: true, backgroundColor: "#ffffff" });
+        const c = new Canvas(el, { preserveObjectStacking: true, backgroundColor: "#ffffff", stopContextMenu: false });
         // the browser's default image shrinking skips pixels (moire, jagged lines); use its high-quality
         // resampling for every render: on screen and in exports (Download / Save design)
         c.on("before:render", ({ ctx }) => { if (ctx) ctx.imageSmoothingQuality = "high"; });
@@ -413,8 +460,14 @@ export default function Editor() {
         c.on("selection:created", select);
         c.on("selection:updated", select);
         c.on("selection:cleared", () => setSelected(null));
+        c.on("mouse:down", (e) => tableEvents.current.down?.(e));
+        c.on("mouse:dblclick", (e) => tableEvents.current.dbl?.(e));
+        c.on("object:modified", (e) => {                 // stretching a table resizes its cells
+          const t = e.target;
+          if (t?.table && (Math.abs(t.scaleX - 1) > 0.001 || Math.abs(t.scaleY - 1) > 0.001)) setSelected(rebuild(c, t, bakeScale(t)));
+        });
         c.on("object:modified", snapshot);
-        c.on("text:changed", refresh);
+        c.on("text:changed", (e) => { if (e.target?.anchor) anchorFix(e.target); refresh(); });
         c.on("text:editing:exited", snapshot);
         addAlignmentGuides(c, { width, height }, guidesOn);
         setInfo(data);
@@ -460,6 +513,25 @@ export default function Editor() {
     return () => window.removeEventListener("resize", onResize);
   }, [fitZoom]);
 
+  // Ctrl + wheel / pinch and Ctrl + / Ctrl - / Ctrl 0 zoom the design, not the whole browser page (like Canva)
+  useEffect(() => {
+    const zoomBy = (factor) => { const c = canvasRef.current; if (c) applyZoom(c.getZoom() * factor); };
+    const onWheel = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      zoomBy(Math.exp(-Math.max(-25, Math.min(25, e.deltaY)) * 0.01));   // a mouse-wheel notch is about 100, a trackpad pinch a few: cap the step
+    };
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      if (e.key === "+" || e.key === "=") { e.preventDefault(); zoomBy(1.1); }
+      else if (e.key === "-" || e.key === "_") { e.preventDefault(); zoomBy(1 / 1.1); }
+      else if (e.key === "0") { e.preventDefault(); fitZoom(); }
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });      // passive: false, or the browser zooms the page anyway
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("wheel", onWheel); window.removeEventListener("keydown", onKey); };
+  }, [applyZoom, fitZoom]);
+
   // ---------------------------------------------------------------- keyboard
   useEffect(() => {
     const onKey = (e) => {
@@ -471,6 +543,8 @@ export default function Editor() {
       if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); restore(1); return; }
       if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); save(); return; }
       if (mod && e.key.toLowerCase() === "d") { e.preventDefault(); duplicate(); return; }
+      if (mod && e.key.toLowerCase() === "c" && obj) { e.preventDefault(); copy(); return; }
+      if (mod && e.key.toLowerCase() === "v") { e.preventDefault(); paste(); return; }
       if (!obj) return;
       if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); remove(); return; }
       const step = e.shiftKey ? 10 : 2;
@@ -517,7 +591,6 @@ export default function Editor() {
     place(obj);
   };
 
-  const addShape = (shape) => centerPlace(shape.make("#F26B0F"), shape.name);
   const addLine = (line) => centerPlace(line.make("#D4A017"), line.name);
 
   const addOverlay = (overlay) => {
@@ -533,6 +606,14 @@ export default function Editor() {
     const obj = util.groupSVGElements(objects.filter(Boolean), options);
     obj.scaleToWidth(graphic.name === "Toran" || graphic.name === "Gold divider" ? 700 : 260);
     centerPlace(obj, graphic.name);
+  };
+
+  // an icon from the Iconify library (SVG text): an editable shape, centred on the page
+  const addIconSvg = async (svg, name) => {
+    const { objects, options } = await loadSVGFromString(svg);
+    const obj = util.groupSVGElements(objects.filter(Boolean), options);
+    obj.scaleToWidth(260);
+    centerPlace(obj, name.charAt(0).toUpperCase() + name.slice(1));
   };
 
   const addBadge = async (badge) => { await ensureFont("Baloo 2"); centerPlace(makeBadge(badge), `Label ${badge.text}`); };
@@ -676,10 +757,180 @@ export default function Editor() {
     c().requestRenderAll(); snapshot();
   };
 
+  // ---------------------------------------------------------------- layers panel: pictures, filter, drag to reorder
+  const [layerFilter, setLayerFilter] = useState("all");   // "all" | "overlap" (only what touches the selected item)
+  const [dragOver, setDragOver] = useState(null);
+  const dragFrom = useRef(null);
+  const thumbs = useMemo(() => (tab === "layers" ? new Map(layers.map((o) => [o, layerThumb(o)])) : null), [layers, tab]);
+  const moveLayer = (obj, onto) => {
+    if (!obj || !onto || obj === onto) return;
+    const objects = c().getObjects();
+    c().moveObjectTo(obj, Math.max(objects.indexOf(onto), objects.some((o) => o.isBackground) ? 1 : 0));
+    pinBackground(c()); c().requestRenderAll(); snapshot();
+  };
+
+  // ---------------------------------------------------------------- tables
+  const tableEvents = useRef({});
+  const [cellEdit, setCellEdit] = useState(null);          // the cell being typed in: { group, r, c, x, y, w, h, size, text }
+  const skipCommit = useRef(false);
+
+  const addTable = async (opts) => {
+    await ensureFont("Mukta");
+    const model = newTable({ ...opts, width: Math.min(W() - 160, 300 * opts.cols) });
+    centerPlace(buildTable(model), "Table");
+  };
+  // change the selected table's model (cell = the cell that was right-clicked) and redraw it
+  const editTable = (fn, cell, ...args) => {
+    const group = c()?.getActiveObject();
+    if (!group?.table) return;
+    const model = structuredClone(group.table);
+    fn(model, cell || { r: 0, c: 0 }, ...args);
+    setSelected(rebuild(c(), group, model));
+    snapshot();
+  };
+  const cellOfEvent = (group, nativeEvent) => {
+    const p = localPoint(group, c().getScenePoint(nativeEvent));
+    return cellAt(group.table, p.x, p.y);
+  };
+  const openCellEdit = (group, r, col) => {
+    const corners = cellCorners(group, r, col), z = c().getZoom(), box = c().upperCanvasEl.getBoundingClientRect();
+    setCellEdit({
+      group, r, c: col, text: group.table.cells[r][col].text,
+      x: box.left + corners[0][0] * z, y: box.top + corners[0][1] * z,
+      w: (corners[1][0] - corners[0][0]) * z, h: (corners[3][1] - corners[0][1]) * z, size: group.table.fontSize * group.scaleY * z,
+    });
+  };
+  const commitCell = (value) => {
+    const edit = cellEdit;
+    setCellEdit(null);
+    if (skipCommit.current) { skipCommit.current = false; return; }
+    if (!edit || value === edit.text || !c().getObjects().includes(edit.group)) return;
+    const model = structuredClone(edit.group.table);
+    model.cells[edit.r][edit.c].text = value;
+    setSelected(rebuild(c(), edit.group, model));
+    snapshot();
+  };
+  tableEvents.current = {
+    down: (e) => {
+      const t = e.target;
+      c()._tableSel = t?.table ? { group: t, ...cellOfEvent(t, e.e) } : null;
+      c().requestRenderAll();
+    },
+    dbl: (e) => { const t = e.target; if (t?.table) { const { r, c: col } = cellOfEvent(t, e.e); openCellEdit(t, r, col); } },
+  };
+
+  // ---------------------------------------------------------------- right-click menu (Canva-style)
+  const clipboard = useRef(null);                          // the copied object
+  const styleClip = useRef(null);                          // the copied look, applied to the next item clicked
+  const [styleMode, setStyleMode] = useState(false);
+  const [menu, setMenu] = useState(null);                  // { x, y, layers } while the menu is open
+  const STYLE_KEYS = ["fill", "stroke", "strokeWidth", "opacity", "shadow", "fontFamily", "fontWeight", "fontStyle", "fontSize", "textAlign", "underline"];
+
+  const copy = async () => {
+    const obj = c()?.getActiveObject();
+    if (obj) clipboard.current = await obj.clone(EXTRA);
+  };
+  const paste = async () => {
+    if (!clipboard.current) return;
+    const copyOf = await clipboard.current.clone(EXTRA);
+    copyOf.set({ left: clipboard.current.left + 30, top: clipboard.current.top + 30, isBackground: false });
+    clipboard.current.set({ left: copyOf.left, top: copyOf.top });   // the next paste steps down again
+    place(copyOf);
+  };
+  const copyStyle = () => {
+    const obj = c()?.getActiveObject();
+    if (!obj) return;
+    styleClip.current = { source: obj, props: Object.fromEntries(STYLE_KEYS.filter((k) => k in obj).map((k) => [k, obj[k]])) };
+    setStyleMode(true);
+  };
+  const layerTo = (where) => {
+    const obj = c()?.getActiveObject();
+    if (!obj) return;
+    if (where === "front") c().bringObjectToFront(obj);
+    else if (where === "back") { c().sendObjectToBack(obj); pinBackground(c()); }   // never behind the pinned background
+    else layer(where === "forward" ? 1 : -1);
+    c().requestRenderAll(); snapshot();
+  };
+
+  // after "Copy style": the next different item selected takes on the copied look
+  useEffect(() => {
+    if (!styleMode || !selected || selected === styleClip.current?.source) return;
+    const props = { ...styleClip.current.props };
+    if (selected.type !== "textbox") ["fontFamily", "fontWeight", "fontStyle", "fontSize", "textAlign", "underline"].forEach((k) => delete props[k]);
+    selected.set(props); selected.setCoords?.();
+    c().requestRenderAll(); snapshot();
+    styleClip.current = null; setStyleMode(false);
+  }, [selected, styleMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const openMenu = (e) => {
+    e.preventDefault();
+    const target = c()?.findTarget(e)?.target;         // Fabric 7 returns { target, subTargets, ... }
+    if (target && !target.isBackground) { c().setActiveObject(target); c().requestRenderAll(); setSelected(target); }
+    else if (!c()?.getActiveObject()) { setMenu(null); return; }
+    const hit = c().getActiveObject();
+    setMenu({ x: e.clientX, y: e.clientY, layers: false, cell: hit?.table ? cellOfEvent(hit, e.nativeEvent) : null });
+  };
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    window.addEventListener("mousedown", close); window.addEventListener("resize", close);
+    window.addEventListener("wheel", close); window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", close); window.removeEventListener("resize", close);
+      window.removeEventListener("wheel", close); window.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
+
   const setProp = (key, value) => {
     const obj = c().getActiveObject();
     if (!obj) return;
-    obj.set(key, value); obj.setCoords?.(); c().requestRenderAll(); snapshot();
+    if (obj.type === "textbox") obj._anchorH = obj.getScaledHeight();
+    obj.set(key, value);
+    if (obj.type === "textbox" && obj.anchor) anchorFix(obj);
+    obj.setCoords?.(); c().requestRenderAll(); snapshot();
+  };
+
+  // ---------------------------------------------------------------- text toolbar: alignment, list, effects, spacing popups
+  const [pop, setPop] = useState(null);                    // { kind: "spacing" | "effects" | "opacity", x, y }
+  const openPop = (kind, e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setPop((p) => (p?.kind === kind ? null : { kind, x: Math.min(r.left, window.innerWidth - 340), y: r.bottom + 8 }));
+  };
+  useEffect(() => {
+    if (!pop) return;
+    const close = () => setPop(null);
+    window.addEventListener("mousedown", close); window.addEventListener("resize", close);
+    return () => { window.removeEventListener("mousedown", close); window.removeEventListener("resize", close); };
+  }, [pop]);
+  useEffect(() => { setPop((p) => (p?.kind === "borders" && selected?.table ? p : null)); }, [selected]);
+
+  const cycleAlign = () => {
+    const order = ["left", "center", "right", "justify"];
+    setProp("textAlign", order[(order.indexOf(selected.textAlign) + 1) % order.length]);
+  };
+  const toggleList = () => {
+    const obj = c().getActiveObject();
+    if (!obj || obj.type !== "textbox") return;
+    const lines = (obj.text || "").split("\n");
+    const next = isListed(obj) ? lines.map((l) => (l.startsWith(BULLET) ? l.slice(BULLET.length) : l)) : lines.map((l) => (l.trim() && !l.startsWith(BULLET) ? BULLET + l : l));
+    obj.styles = {};                                       // per-letter styles no longer line up once the text changes
+    setProp("text", next.join("\n"));
+  };
+  const setEffect = (kind) => {
+    const obj = c().getActiveObject();
+    if (!obj) return;
+    const light = typeof obj.fill === "string" && isLightColor(obj.fill);
+    const changes = { shadow: null, stroke: null, strokeWidth: 0, paintFirst: "fill" };
+    if (kind === "shadow") changes.shadow = shadow();
+    if (kind === "glow") changes.shadow = new Shadow({ color: typeof obj.fill === "string" ? obj.fill : "#FFC94A", blur: 24, offsetX: 0, offsetY: 0 });
+    if (kind === "outline") Object.assign(changes, { stroke: light ? "#111111" : "#FFFFFF", strokeWidth: Math.max(2, Math.round(obj.fontSize * 0.06)), paintFirst: "stroke" });
+    obj.set(changes); c().requestRenderAll(); snapshot();
+  };
+  const setAnchor = (a) => {
+    const obj = c().getActiveObject();
+    if (!obj) return;
+    obj.anchor = a; obj._anchorH = obj.getScaledHeight(); snapshot();
   };
 
   const selectLayer = (obj) => { c().setActiveObject(obj); c().requestRenderAll(); setSelected(obj); };
@@ -739,35 +990,10 @@ export default function Editor() {
           <button key={p.label} className={`ed-preset ${p.cls}`} style={{ fontFamily: p.font, fontWeight: p.weight }}
             onClick={() => addText({ text: p.text, font: p.font, weight: p.weight, size: p.size })}>{p.label}</button>
         ))}
-        <div className="ed-section">{sample.name} combinations</div>
-        <div className="ed-combos">
-          {combosFor(sample).map((p) => (
-            <button key={p.label} className="ed-combo" style={{ fontFamily: p.font, fontWeight: p.weight, color: p.fill === "#FFFFFF" ? "#7A1F12" : p.fill }}
-              onClick={() => addText({ text: p.label, font: p.font, weight: p.weight, size: p.size, fill: p.fill })}>{p.label}</button>
-          ))}
-        </div>
-        {[["marathi", "Marathi / Hindi fonts", "नमस्कार"], ["english", "English only", "Hello"]].map(([group, title, sample]) => (
-          <div key={group} className="ed-fontgroup">
-            <div className="ed-section">{title}</div>
-            {fontsIn(group).map((f) => (
-              <button key={f} className="ed-font" style={{ fontFamily: f }} disabled={!isText}
-                title={isText ? "Apply to the selected text" : "Select a text first"}
-                onClick={() => setFont(f)}>{f} <span>{sample}</span></button>
-            ))}
-          </div>
-        ))}
       </>
     ),
     elements: (
-      <>
-        <div className="ed-section">Shapes</div>
-        <div className="ed-tiles">
-          {SHAPES.map((sh) => (
-            <button key={sh.name} title={sh.name} onClick={() => addShape(sh)}>
-              <svg viewBox="0 0 40 40" fill="#F26B0F" dangerouslySetInnerHTML={{ __html: sh.preview }} />
-            </button>
-          ))}
-        </div>
+      <IconBrowser onPick={addIconSvg} onAddTable={addTable} onPickShape={(sh) => centerPlace(makeShapePath(sh), sh.name)}>
         <div className="ed-section">Lines and frames</div>
         <div className="ed-tiles">
           {LINES.map((ln) => (
@@ -803,7 +1029,7 @@ export default function Editor() {
         <div className="ed-emojis">
           {EMOJIS.map((e) => <button key={e} onClick={() => addEmoji(e)} aria-label={`Add ${e}`}>{e}</button>)}
         </div>
-      </>
+      </IconBrowser>
     ),
     uploads: (
       <>
@@ -855,17 +1081,35 @@ export default function Editor() {
         <p className="ed-hint">A plain colour removes the background photo.</p>
       </>
     ),
-    layers: (
-      <ul className="ed-layers">
-        {layers.map((o, i) => (
-          <li key={i}>
-            <button className={o === selected ? "on" : ""} onClick={() => selectLayer(o)}>
-              <span className="mr ellipsis">{o.type === "textbox" ? (o.text || "").split("\n")[0] : (o.name || o.type)}</span>
-              {o.lockMovementX && <Lock size={12} aria-label="Locked" />}
-            </button>
-          </li>
-        ))}
-      </ul>
+    layers: tab !== "layers" ? null : (
+      <>
+        <div className="ed-layers-title">Layers</div>
+        <div className="ed-seg" role="tablist">
+          {[["all", "All"], ["overlap", "Overlapping"]].map(([k, label]) => (
+            <button key={k} role="tab" aria-selected={layerFilter === k} className={layerFilter === k ? "on" : ""} onClick={() => setLayerFilter(k)}>{label}</button>
+          ))}
+        </div>
+        <ul className="ed-layers">
+          {layers.filter((o) => layerFilter === "all" || !selected || o === selected || o.intersectsWithObject?.(selected)).map((o) => (
+            <li key={layers.indexOf(o)} draggable={!o.isBackground}
+                className={[dragOver === o ? "over" : "", dragFrom.current === o ? "dragging" : ""].join(" ")}
+                onDragStart={(e) => { dragFrom.current = o; e.dataTransfer.effectAllowed = "move"; }}
+                onDragOver={(e) => { if (dragFrom.current && dragFrom.current !== o) { e.preventDefault(); setDragOver(o); } }}
+                onDragLeave={() => setDragOver((v) => (v === o ? null : v))}
+                onDrop={(e) => { e.preventDefault(); moveLayer(dragFrom.current, o); dragFrom.current = null; setDragOver(null); }}
+                onDragEnd={() => { dragFrom.current = null; setDragOver(null); }}>
+              <button className={o === selected ? "on" : ""} onClick={() => selectLayer(o)}>
+                <GripVertical size={18} className="grip" />
+                <span className="lay-pic">
+                  {thumbs?.get(o) ? <img src={thumbs.get(o)} alt="" draggable={false} />
+                    : <span className="ellipsis">{o.type === "textbox" ? (o.text || "").split("\n")[0] : (o.name || o.type)}</span>}
+                </span>
+                {o.lockMovementX && <Lock size={14} aria-label="Locked" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </>
     ),
   };
 
@@ -933,6 +1177,11 @@ export default function Editor() {
                 {templateMode && (isText || selected.type === "image") && <span className="ed-sep" />}
                 {isText && (
                   <>
+                    <button className={`ed-color${colorTarget === "fill" ? " on" : ""}`} title="Text colour"
+                            style={{ "--c": typeof selected.fill === "string" ? currentFill : "linear-gradient(90deg, #F26B0F, #FFC94A)" }}
+                            onClick={() => setColorTarget(colorTarget === "fill" ? null : "fill")}>
+                      <span className="ed-color-a" style={{ borderImage: typeof selected.fill === "string" ? "none" : "linear-gradient(90deg, #F26B0F, #FFC94A) 1" }}>A</span>
+                    </button>
                     <select className="ed-select" value={selected.fontFamily} onChange={(e) => setFont(e.target.value)} aria-label="Font">
                       <optgroup label="Marathi">{fontsIn("marathi").map((f) => <option key={f} value={f}>{f}</option>)}</optgroup>
                       <optgroup label="English only">{fontsIn("english").map((f) => <option key={f} value={f}>{f}</option>)}</optgroup>
@@ -944,17 +1193,29 @@ export default function Editor() {
                       <input value={Math.round(selected.fontSize)} onChange={(e) => setProp("fontSize", Number(e.target.value) || selected.fontSize)} aria-label="Font size" />
                       <button onClick={() => setProp("fontSize", Math.round(selected.fontSize) + 4)} aria-label="Bigger"><Plus size={14} /></button>
                     </div>
-                    <button className={`ed-color${colorTarget === "fill" ? " on" : ""}`} title="Text colour"
-                            style={{ "--c": typeof selected.fill === "string" ? currentFill : "linear-gradient(90deg, #F26B0F, #FFC94A)" }}
-                            onClick={() => setColorTarget(colorTarget === "fill" ? null : "fill")}>
-                      <span className="ed-color-a" style={{ borderImage: typeof selected.fill === "string" ? "none" : "linear-gradient(90deg, #F26B0F, #FFC94A) 1" }}>A</span>
+                    <button className="ed-ctx" title={`Alignment: ${selected.textAlign} (click to change)`} onClick={cycleAlign}>
+                      {(() => { const A = { left: AlignLeft, center: AlignCenter, right: AlignRight, justify: AlignJustify }[selected.textAlign] || AlignLeft; return <A size={16} />; })()}
                     </button>
                     <button className={`ed-ctx${isBold(selected.fontWeight) ? " on" : ""}`} title="Bold"
                       onClick={() => setProp("fontWeight", isBold(selected.fontWeight) ? "400" : "800")}><Bold size={16} /></button>
-                    {[["left", AlignLeft], ["center", AlignCenter], ["right", AlignRight]].map(([a, Icon]) => (
-                      <button key={a} className={`ed-ctx${selected.textAlign === a ? " on" : ""}`} title={`Align ${a}`} onClick={() => setProp("textAlign", a)}><Icon size={16} /></button>
-                    ))}
-                    <button className={`ed-ctx text${selected.shadow ? " on" : ""}`} onClick={() => setProp("shadow", selected.shadow ? null : shadow())}>Shadow</button>
+                    <button className={`ed-ctx${selected.fontStyle === "italic" ? " on" : ""}`} title="Italic"
+                      onClick={() => setProp("fontStyle", selected.fontStyle === "italic" ? "normal" : "italic")}><Italic size={16} /></button>
+                    <button className={`ed-ctx${selected.underline ? " on" : ""}`} title="Underline"
+                      onClick={() => setProp("underline", !selected.underline)}><Underline size={16} /></button>
+                    <button className={`ed-ctx${isListed(selected) ? " on" : ""}`} title="Bulleted list" onClick={toggleList}><List size={16} /></button>
+                    <span className="ed-sep" />
+                    <button className={`ed-ctx${pop?.kind === "spacing" ? " on" : ""}`} title="Spacing and advanced settings" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => openPop("spacing", e)}><ALargeSmall size={16} /></button>
+                    <button className={`ed-ctx text${pop?.kind === "effects" || effectOf(selected) !== "none" ? " on" : ""}`} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => openPop("effects", e)}><Sparkles size={15} /> Effects</button>
+                  </>
+                )}
+                {selected.table && (
+                  <>
+                    <button className={`ed-ctx text${pop?.kind === "borders" ? " on" : ""}`} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => openPop("borders", e)}><Grid3x3 size={15} /> Borders</button>
+                    <div className="ed-size">
+                      <button onClick={() => editTable((m) => { m.fontSize = Math.max(10, m.fontSize - 4); })} aria-label="Smaller text"><Minus size={14} /></button>
+                      <input value={selected.table.fontSize} readOnly aria-label="Table text size" />
+                      <button onClick={() => editTable((m) => { m.fontSize += 4; })} aria-label="Bigger text"><Plus size={14} /></button>
+                    </div>
                   </>
                 )}
                 {(isShape || isLine || (["rect", "circle", "ellipse", "triangle", "polygon", "path"].includes(selected.type) && selected.fill?.colorStops)) && (
@@ -963,10 +1224,7 @@ export default function Editor() {
                           onClick={() => { const t = isLine ? "stroke" : "fill"; setColorTarget(colorTarget === t ? null : t); }} />
                 )}
                 <span className="ed-sep" />
-                <label className="ed-opacity" title="Transparency">
-                  <span>{Math.round((selected.opacity ?? 1) * 100)}%</span>
-                  <input type="range" min="10" max="100" value={Math.round((selected.opacity ?? 1) * 100)} onChange={(e) => setProp("opacity", Number(e.target.value) / 100)} />
-                </label>
+                <button className={`ed-ctx${pop?.kind === "opacity" ? " on" : ""}`} title={`Transparency (${Math.round((selected.opacity ?? 1) * 100)}%)`} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => openPop("opacity", e)}><Blend size={16} /></button>
                 {!isText && (
                   <>
                     <button className={`ed-ctx${selected.flipX ? " on" : ""}`} title="Flip horizontal" onClick={() => setProp("flipX", !selected.flipX)}><FlipHorizontal2 size={16} /></button>
@@ -979,17 +1237,156 @@ export default function Editor() {
                 <button className="ed-ctx" title={selected.lockMovementX ? "Unlock" : "Lock"} onClick={toggleLock}>{selected.lockMovementX ? <Unlock size={16} /> : <Lock size={16} />}</button>
                 <button className="ed-ctx danger" title="Delete" onClick={remove}><Trash2 size={16} /></button>
               </>
-            ) : (
-              <span className={templateMode ? "ed-template-hint" : "ed-hint"}>
-                {templateMode ? "Template: click a text or picture, then choose Fill with to let the app fill it for each post. Save template when done."
-                  : "Select an item to edit it, or add something from the left."}
+            ) : templateMode && (
+              <span className="ed-template-hint">
+                Template: click a text or picture, then choose Fill with to let the app fill it for each post. Save template when done.
               </span>
             )}
           </div>
 
-          <div className="ed-workspace" onMouseDown={(e) => { if (e.target === e.currentTarget) { c()?.discardActiveObject(); c()?.requestRenderAll(); setSelected(null); } }}>
+          <div className={`ed-workspace${styleMode ? " painting" : ""}`} onContextMenu={openMenu}
+               onMouseDown={(e) => { if (e.target === e.currentTarget) { c()?.discardActiveObject(); c()?.requestRenderAll(); setSelected(null); } }}>
             <div ref={holder} className="ed-page" />
           </div>
+          {styleMode && (
+            <div className="ed-style-hint">Click another item to apply the copied style
+              <button onClick={() => { styleClip.current = null; setStyleMode(false); }}>Cancel</button></div>
+          )}
+          {pop && selected && (
+            <div className="ed-pop" style={{ left: pop.x, top: pop.y }} onMouseDown={(e) => e.stopPropagation()}>
+              {pop.kind === "opacity" && (
+                <>
+                  <div className="ed-pop-title">Transparency</div>
+                  <div className="ed-pop-row">
+                    <input type="range" min="0" max="100" value={Math.round((selected.opacity ?? 1) * 100)} onChange={(e) => setProp("opacity", Number(e.target.value) / 100)} />
+                    <input className="ed-pop-num" value={Math.round((selected.opacity ?? 1) * 100)} onChange={(e) => setProp("opacity", Math.min(100, Math.max(0, Number(e.target.value) || 0)) / 100)} />
+                  </div>
+                </>
+              )}
+              {pop.kind === "effects" && (
+                <>
+                  <div className="ed-pop-title">Effects</div>
+                  <div className="ed-pop-fx">
+                    {[["none", "None"], ["shadow", "Shadow"], ["glow", "Glow"], ["outline", "Outline"]].map(([k, label]) => (
+                      <button key={k} className={effectOf(selected) === k ? "on" : ""} onClick={() => setEffect(k)}>
+                        <span style={{ fontWeight: 800, color: "#101828",
+                          textShadow: k === "shadow" ? "3px 3px 3px rgba(0,0,0,.45)" : k === "glow" ? "0 0 10px #7c3aed" : "none",
+                          WebkitTextStroke: k === "outline" ? "1.5px #7c3aed" : 0 }}>Ag</span>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {pop.kind === "spacing" && (
+                <>
+                  <div className="ed-pop-title">Letter spacing</div>
+                  <div className="ed-pop-row">
+                    <input type="range" min="-200" max="800" step="10" value={selected.charSpacing || 0} onChange={(e) => setProp("charSpacing", Number(e.target.value))} />
+                    <input className="ed-pop-num" value={Math.round((selected.charSpacing || 0) / 10)} onChange={(e) => setProp("charSpacing", (Number(e.target.value) || 0) * 10)} />
+                  </div>
+                  <div className="ed-pop-title">Line spacing</div>
+                  <div className="ed-pop-row">
+                    <input type="range" min="0.5" max="3" step="0.05" value={selected.lineHeight} onChange={(e) => setProp("lineHeight", Number(e.target.value))} />
+                    <input className="ed-pop-num" value={Number(selected.lineHeight).toFixed(2)} onChange={(e) => setProp("lineHeight", Math.min(3, Math.max(0.5, Number(e.target.value) || 1)))} />
+                  </div>
+                  <hr />
+                  <div className="ed-pop-anchor">
+                    <span>Anchor text box</span>
+                    {[["bottom", ArrowDownToLine, "Keep bottom edge in place"], ["middle", FoldVertical, "Keep middle in place"], ["top", ArrowUpToLine, "Keep top edge in place"]].map(([a, Icon, tip]) => (
+                      <button key={a} title={tip} className={(selected.anchor || "top") === a ? "on" : ""} onClick={() => { setAnchor(a); refresh(); }}><Icon size={18} /></button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {pop?.kind === "borders" && selected?.table && (
+            <div className="ed-pop" style={{ left: pop.x, top: pop.y }} onMouseDown={(e) => e.stopPropagation()}>
+              <div className="ed-pop-title">Borders</div>
+              <div className="tb-modes">
+                {BORDER_MODES.map(([mode, label]) => (
+                  <button key={mode} title={label} className={selected.table.border.mode === mode ? "on" : ""} onClick={() => editTable((m) => { m.border.mode = mode; })}>
+                    <svg viewBox="0 0 24 24">
+                      <rect x="3" y="3" width="18" height="18" fill="none" stroke="#D0D5DD" strokeWidth="1" />
+                      {[1, 2].map((k) => <g key={k}><line x1="3" x2="21" y1={3 + k * 6} y2={3 + k * 6} stroke="#D0D5DD" /><line y1="3" y2="21" x1={3 + k * 6} x2={3 + k * 6} stroke="#D0D5DD" /></g>)}
+                      {[0, 1, 2, 3].map((k) => showH(mode, k, 3) && <line key={`h${k}`} x1="3" x2="21" y1={3 + k * 6} y2={3 + k * 6} stroke="#101828" strokeWidth="2" />)}
+                      {[0, 1, 2, 3].map((k) => showV(mode, k, 3) && <line key={`v${k}`} y1="3" y2="21" x1={3 + k * 6} x2={3 + k * 6} stroke="#101828" strokeWidth="2" />)}
+                    </svg>
+                  </button>
+                ))}
+              </div>
+              <div className="ed-pop-title">Border colour</div>
+              <div className="ed-swatches">
+                {COLORS.map((col) => <button key={col} style={{ background: col }} aria-label={col} onClick={() => editTable((m) => { m.border.color = col; })} />)}
+              </div>
+              <div className="ed-pop-title">Border thickness</div>
+              <div className="ed-pop-row">
+                <input type="range" min="1" max="16" value={selected.table.border.width} onChange={(e) => editTable((m) => { m.border.width = Number(e.target.value); })} />
+                <input className="ed-pop-num" value={selected.table.border.width} readOnly />
+              </div>
+            </div>
+          )}
+          {cellEdit && (
+            <textarea className="tb-cell-edit" autoFocus defaultValue={cellEdit.text} aria-label="Cell text"
+                      style={{ left: cellEdit.x, top: cellEdit.y, width: cellEdit.w, height: cellEdit.h, fontSize: cellEdit.size, fontFamily: cellEdit.group.table.fontFamily, padding: cellEdit.size * 0.35 }}
+                      onFocus={(e) => e.target.select()}
+                      onBlur={(e) => commitCell(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); }
+                        if (e.key === "Escape") { skipCommit.current = true; e.currentTarget.blur(); }
+                      }} />
+          )}
+          {menu && selected && (() => {
+            const run = (fn) => () => { setMenu(null); fn(); };
+            const left = Math.min(menu.x, window.innerWidth - 250), top = Math.max(8, Math.min(menu.y, window.innerHeight - (selected.table ? 690 : 330)));
+            return (
+              <div className="ed-menu" style={{ left, top }} role="menu" onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+                <button role="menuitem" onClick={run(copy)}><Copy size={18} /> Copy <kbd>Ctrl+C</kbd></button>
+                {!selected.table && <button role="menuitem" onClick={run(copyStyle)}><Palette size={18} /> Copy style</button>}
+                <button role="menuitem" onClick={run(paste)} disabled={!clipboard.current}><ClipboardPaste size={18} /> Paste <kbd>Ctrl+V</kbd></button>
+                <button role="menuitem" onClick={run(duplicate)}><CopyPlus size={18} /> Duplicate <kbd>Ctrl+D</kbd></button>
+                <button role="menuitem" onClick={run(remove)}>{selected.table ? <Table2 size={18} /> : <Trash2 size={18} />} {selected.table ? "Delete table" : "Delete"} <kbd>Del</kbd></button>
+                <hr />
+                {selected.table && menu.cell && (() => {
+                  const op = (fn, ...args) => run(() => editTable(fn, menu.cell, ...args));
+                  const m = selected.table;
+                  return (
+                    <>
+                      <button role="menuitem" onClick={op(TABLE_OPS.addColumn)}><Plus size={18} /> Add column</button>
+                      <button role="menuitem" onClick={op(TABLE_OPS.deleteColumn)} disabled={m.cols < 2}><Minus size={18} /> Delete column</button>
+                      <button role="menuitem" onClick={op(TABLE_OPS.addRow)}><Rows3 size={18} /> Add row</button>
+                      <button role="menuitem" onClick={op(TABLE_OPS.deleteRow)} disabled={m.rows < 2}><Minus size={18} /> Delete row</button>
+                      <hr />
+                      <button role="menuitem" onClick={op(TABLE_OPS.sizeRowsEqually)}><UnfoldVertical size={18} /> Size rows equally</button>
+                      <button role="menuitem" onClick={op(TABLE_OPS.sizeRowsToContent)}><ChevronsUpDown size={18} /> Size rows to content</button>
+                      <button role="menuitem" onClick={op(TABLE_OPS.sizeColumnToContent)}><Grid3x3 size={18} /> Size column to content</button>
+                      <button role="menuitem" onClick={op(TABLE_OPS.moveColumn, -1)} disabled={menu.cell.c === 0}><MoveLeft size={18} /> Move column left</button>
+                      <button role="menuitem" onClick={op(TABLE_OPS.moveColumn, 1)} disabled={menu.cell.c >= m.cols - 1}><MoveRight size={18} /> Move column right</button>
+                      <hr />
+                    </>
+                  );
+                })()}
+                <div className="ed-menu-sub" onMouseEnter={() => setMenu((m) => ({ ...m, layers: true }))}>
+                  <button role="menuitem" aria-haspopup="true" onClick={() => setMenu((m) => ({ ...m, layers: !m.layers }))}>
+                    <Layers size={18} /> Layer <ChevronRight size={16} className="go" />
+                  </button>
+                  {menu.layers && (
+                    <div className="ed-menu ed-menu-flyout" role="menu">
+                      <button role="menuitem" onClick={run(() => layerTo("front"))}>Bring to front</button>
+                      <button role="menuitem" onClick={run(() => layerTo("forward"))}>Bring forward</button>
+                      <button role="menuitem" onClick={run(() => layerTo("backward"))}>Send backward</button>
+                      <button role="menuitem" onClick={run(() => layerTo("back"))}>Send to back</button>
+                    </div>
+                  )}
+                </div>
+                <hr />
+                <button role="menuitem" onClick={run(toggleLock)}>
+                  {selected.lockMovementX ? <Unlock size={18} /> : <Lock size={18} />} {selected.lockMovementX ? "Unlock" : "Lock"} <kbd>Alt+Shift+L</kbd>
+                </button>
+              </div>
+            );
+          })()}
           {error && <div className="ed-notice"><Notice kind="error">{error}</Notice></div>}
           {colorTarget && info && (
             <div className="ed-color-pop">
@@ -1062,17 +1459,28 @@ export default function Editor() {
           })()}
 
           <footer className="ed-bottom">
-            <span className="ed-hint">Double-click text to type · Delete removes · Arrows nudge · Alt-drag moves without snapping</span>
-            <button className={`ed-guides${guides ? " on" : ""}`} aria-pressed={guides} title="Alignment guides while dragging"
-                    onClick={() => { guidesOn.current = !guidesOn.current; setGuides(guidesOn.current); }}>
-              <Magnet size={15} /> Guides {guides ? "on" : "off"}
-            </button>
+            <div className="ed-bottom-left" />
             <div className="ed-zoom">
               <button onClick={() => applyZoom(zoom - 0.1)} aria-label="Zoom out"><Minus size={14} /></button>
               <input type="range" min="20" max="150" value={Math.round(zoom * 100)} onChange={(e) => applyZoom(Number(e.target.value) / 100)} aria-label="Zoom" />
               <button onClick={() => applyZoom(zoom + 0.1)} aria-label="Zoom in"><Plus size={14} /></button>
               <span className="ed-zoom-v">{Math.round(zoom * 100)}%</span>
-              <button onClick={fitZoom} title="Fit to screen"><Maximize size={15} /></button>
+              <button onClick={fitZoom} title="Fit to screen" aria-label="Fit to screen"><Maximize size={16} /></button>
+              <button onClick={toggleFullscreen} title={fullscreen ? "Exit full screen" : "Full screen"} aria-label="Full screen">
+                {fullscreen ? <Minimize size={16} /> : <Expand size={16} />}
+              </button>
+              <span className="ed-help">
+                <button onClick={() => setHelpOpen((o) => !o)} title="Shortcuts" aria-label="Shortcuts" aria-expanded={helpOpen}><CircleHelp size={17} /></button>
+                {helpOpen && (
+                  <div className="ed-help-pop" role="dialog">
+                    <b>Shortcuts</b>
+                    <span>Double-click text to type</span>
+                    <span>Delete removes the selection</span>
+                    <span>Arrow keys nudge it</span>
+                    <span>Alt-drag moves without snapping</span>
+                  </div>
+                )}
+              </span>
             </div>
           </footer>
         </main>

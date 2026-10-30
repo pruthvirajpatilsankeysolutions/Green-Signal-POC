@@ -1,0 +1,4 @@
+[     227ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=daa4d8f1:15804
+[     494ms] [LOG] fabric WebGL: max texture size 16384 @ http://localhost:5173/node_modules/.vite/deps/fabric.js?v=daa4d8f1:69
+[   40083ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=daa4d8f1:15804
+[   40349ms] [LOG] fabric WebGL: max texture size 16384 @ http://localhost:5173/node_modules/.vite/deps/fabric.js?v=daa4d8f1:69

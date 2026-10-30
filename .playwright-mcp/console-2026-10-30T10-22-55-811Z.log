@@ -1,0 +1,5 @@
+[     295ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=daa4d8f1:15804
+[     637ms] [LOG] fabric WebGL: max texture size 16384 @ http://localhost:5173/node_modules/.vite/deps/fabric.js?v=daa4d8f1:69
+[  147345ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5173/@vite/client:1082
+[  809043ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=daa4d8f1:15804
+[  824828ms] [LOG] fabric WebGL: max texture size 16384 @ http://localhost:5173/node_modules/.vite/deps/fabric.js?v=daa4d8f1:69

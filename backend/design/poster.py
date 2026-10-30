@@ -388,8 +388,8 @@ def measure_existing(png_path):
     def work():
         if sys.platform.startswith("win"):
             asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-        size = "story" if png.stem.endswith("_story") else "feed"
-        width, height = SIZES[size]
+        with Image.open(png) as im:
+            width, height = im.size                    # the poster's own size, even if the app's size changed since
         with sync_playwright() as p:
             browser = p.chromium.launch()
             try:
